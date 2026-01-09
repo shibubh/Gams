@@ -122,15 +122,35 @@ export function CanvasEditor() {
   }, []); // Empty deps - run once
 
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    // Prevent default touch behaviors (like scrolling/zooming)
+    if (e.pointerType === "touch") {
+      e.preventDefault();
+    }
     toolRouterRef.current?.handlePointerDown(e.nativeEvent);
   };
 
   const handlePointerMove = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    // Prevent default touch behaviors
+    if (e.pointerType === "touch") {
+      e.preventDefault();
+    }
     toolRouterRef.current?.handlePointerMove(e.nativeEvent);
   };
 
   const handlePointerUp = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    // Prevent default touch behaviors
+    if (e.pointerType === "touch") {
+      e.preventDefault();
+    }
     toolRouterRef.current?.handlePointerUp(e.nativeEvent);
+  };
+
+  const handlePointerCancel = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    // Treat cancel like pointer up for touch
+    if (e.pointerType === "touch") {
+      e.preventDefault();
+      toolRouterRef.current?.handlePointerUp(e.nativeEvent);
+    }
   };
 
   const handleWheel = (e: React.WheelEvent<HTMLCanvasElement>) => {
@@ -188,17 +208,21 @@ export function CanvasEditor() {
           padding: "12px",
           backgroundColor: "#f8fafc",
           borderBottom: "1px solid #e2e8f0",
+          flexWrap: "wrap",
         }}
       >
         <button
           onClick={() => handleToolChange("select")}
           style={{
-            padding: "8px 16px",
+            padding: "12px 20px",
+            minHeight: "44px", // iOS recommended minimum tap target
             backgroundColor: activeTool === "select" ? "#3b82f6" : "white",
             color: activeTool === "select" ? "white" : "black",
             border: "1px solid #cbd5e1",
-            borderRadius: "4px",
+            borderRadius: "6px",
             cursor: "pointer",
+            fontSize: "15px",
+            fontWeight: activeTool === "select" ? "600" : "400",
           }}
         >
           Select
@@ -206,12 +230,15 @@ export function CanvasEditor() {
         <button
           onClick={() => handleToolChange("pan")}
           style={{
-            padding: "8px 16px",
+            padding: "12px 20px",
+            minHeight: "44px",
             backgroundColor: activeTool === "pan" ? "#3b82f6" : "white",
             color: activeTool === "pan" ? "white" : "black",
             border: "1px solid #cbd5e1",
-            borderRadius: "4px",
+            borderRadius: "6px",
             cursor: "pointer",
+            fontSize: "15px",
+            fontWeight: activeTool === "pan" ? "600" : "400",
           }}
         >
           Pan
@@ -219,12 +246,15 @@ export function CanvasEditor() {
         <button
           onClick={() => handleToolChange("rect")}
           style={{
-            padding: "8px 16px",
+            padding: "12px 20px",
+            minHeight: "44px",
             backgroundColor: activeTool === "rect" ? "#3b82f6" : "white",
             color: activeTool === "rect" ? "white" : "black",
             border: "1px solid #cbd5e1",
-            borderRadius: "4px",
+            borderRadius: "6px",
             cursor: "pointer",
+            fontSize: "15px",
+            fontWeight: activeTool === "rect" ? "600" : "400",
           }}
         >
           Rectangle
@@ -236,12 +266,14 @@ export function CanvasEditor() {
           onClick={handleUndo}
           disabled={!canUndo}
           style={{
-            padding: "8px 16px",
+            padding: "12px 20px",
+            minHeight: "44px",
             backgroundColor: "white",
             border: "1px solid #cbd5e1",
-            borderRadius: "4px",
+            borderRadius: "6px",
             cursor: canUndo ? "pointer" : "not-allowed",
             opacity: canUndo ? 1 : 0.5,
+            fontSize: "15px",
           }}
         >
           Undo
@@ -250,12 +282,14 @@ export function CanvasEditor() {
           onClick={handleRedo}
           disabled={!canRedo}
           style={{
-            padding: "8px 16px",
+            padding: "12px 20px",
+            minHeight: "44px",
             backgroundColor: "white",
             border: "1px solid #cbd5e1",
-            borderRadius: "4px",
+            borderRadius: "6px",
             cursor: canRedo ? "pointer" : "not-allowed",
             opacity: canRedo ? 1 : 0.5,
+            fontSize: "15px",
           }}
         >
           Redo
@@ -263,11 +297,13 @@ export function CanvasEditor() {
         <button
           onClick={handleExport}
           style={{
-            padding: "8px 16px",
+            padding: "12px 20px",
+            minHeight: "44px",
             backgroundColor: "white",
             border: "1px solid #cbd5e1",
-            borderRadius: "4px",
+            borderRadius: "6px",
             cursor: "pointer",
+            fontSize: "15px",
           }}
         >
           Export
@@ -281,6 +317,7 @@ export function CanvasEditor() {
           onPointerDown={handlePointerDown}
           onPointerMove={handlePointerMove}
           onPointerUp={handlePointerUp}
+          onPointerCancel={handlePointerCancel}
           onWheel={handleWheel}
           onKeyDown={handleKeyDown}
           tabIndex={0}
@@ -289,6 +326,7 @@ export function CanvasEditor() {
             height: "100%",
             display: "block",
             cursor: activeTool === "pan" ? "grab" : "crosshair",
+            touchAction: "none", // Disable browser touch gestures
           }}
         />
       </div>
