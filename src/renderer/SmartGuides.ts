@@ -311,14 +311,19 @@ export function calculateDistanceMeasurements(
   const centerY = bounds.y + bounds.height / 2;
   const centerX = bounds.x + bounds.width / 2;
 
+  // Note: Type assertions below are required due to TypeScript limitation with control flow analysis
+  // When variables are reassigned in forEach callbacks, TypeScript fails to narrow types correctly
+  // even after null checks. See: https://github.com/microsoft/TypeScript/issues/9998
+
   // Left side - show distance to nearest sibling or parent
-  if (nearestLeft) {
+  if (nearestLeft !== null) {
+    const leftMeasure = nearestLeft as { node: SceneNode; distance: number };
     measurements.push({
       from: { x: bounds.x, y: centerY },
-      to: { x: nearestLeft.node.bounds.x + nearestLeft.node.bounds.width, y: centerY },
+      to: { x: leftMeasure.node.bounds.x + leftMeasure.node.bounds.width, y: centerY },
       direction: 'horizontal',
-      distance: nearestLeft.distance,
-      label: `${Math.round(nearestLeft.distance)}`,
+      distance: leftMeasure.distance,
+      label: `${Math.round(leftMeasure.distance)}`,
     });
   } else if (parentBounds) {
     const distToParentLeft = bounds.x - parentBounds.x;
@@ -334,13 +339,14 @@ export function calculateDistanceMeasurements(
   }
 
   // Right side - show distance to nearest sibling or parent
-  if (nearestRight) {
+  if (nearestRight !== null) {
+    const rightMeasure = nearestRight as { node: SceneNode; distance: number };
     measurements.push({
       from: { x: bounds.x + bounds.width, y: centerY },
-      to: { x: nearestRight.node.bounds.x, y: centerY },
+      to: { x: rightMeasure.node.bounds.x, y: centerY },
       direction: 'horizontal',
-      distance: nearestRight.distance,
-      label: `${Math.round(nearestRight.distance)}`,
+      distance: rightMeasure.distance,
+      label: `${Math.round(rightMeasure.distance)}`,
     });
   } else if (parentBounds) {
     const distToParentRight = (parentBounds.x + parentBounds.width) - (bounds.x + bounds.width);
@@ -356,13 +362,14 @@ export function calculateDistanceMeasurements(
   }
 
   // Top side - show distance to nearest sibling or parent
-  if (nearestTop) {
+  if (nearestTop !== null) {
+    const topMeasure = nearestTop as { node: SceneNode; distance: number };
     measurements.push({
       from: { x: centerX, y: bounds.y },
-      to: { x: centerX, y: nearestTop.node.bounds.y + nearestTop.node.bounds.height },
+      to: { x: centerX, y: topMeasure.node.bounds.y + topMeasure.node.bounds.height },
       direction: 'vertical',
-      distance: nearestTop.distance,
-      label: `${Math.round(nearestTop.distance)}`,
+      distance: topMeasure.distance,
+      label: `${Math.round(topMeasure.distance)}`,
     });
   } else if (parentBounds) {
     const distToParentTop = bounds.y - parentBounds.y;
@@ -378,13 +385,14 @@ export function calculateDistanceMeasurements(
   }
 
   // Bottom side - show distance to nearest sibling or parent
-  if (nearestBottom) {
+  if (nearestBottom !== null) {
+    const bottomMeasure = nearestBottom as { node: SceneNode; distance: number };
     measurements.push({
       from: { x: centerX, y: bounds.y + bounds.height },
-      to: { x: centerX, y: nearestBottom.node.bounds.y },
+      to: { x: centerX, y: bottomMeasure.node.bounds.y },
       direction: 'vertical',
-      distance: nearestBottom.distance,
-      label: `${Math.round(nearestBottom.distance)}`,
+      distance: bottomMeasure.distance,
+      label: `${Math.round(bottomMeasure.distance)}`,
     });
   } else if (parentBounds) {
     const distToParentBottom = (parentBounds.y + parentBounds.height) - (bounds.y + bounds.height);
