@@ -282,7 +282,15 @@ export class SelectTool implements Tool {
     const parentBounds = parentFrame.bounds;
     const constrainedBounds = { ...bounds };
 
-    // Ensure the shape stays completely within parent frame
+    // First, constrain size to fit within parent frame if needed
+    if (constrainedBounds.width > parentBounds.width) {
+      constrainedBounds.width = parentBounds.width;
+    }
+    if (constrainedBounds.height > parentBounds.height) {
+      constrainedBounds.height = parentBounds.height;
+    }
+
+    // Then, constrain position to keep shape completely within parent frame
     // Left constraint
     if (constrainedBounds.x < parentBounds.x) {
       constrainedBounds.x = parentBounds.x;
@@ -298,17 +306,6 @@ export class SelectTool implements Tool {
     // Bottom constraint
     if (constrainedBounds.y + constrainedBounds.height > parentBounds.y + parentBounds.height) {
       constrainedBounds.y = parentBounds.y + parentBounds.height - constrainedBounds.height;
-    }
-
-    // If width is too large for parent, shrink it
-    if (constrainedBounds.width > parentBounds.width) {
-      constrainedBounds.width = parentBounds.width;
-      constrainedBounds.x = parentBounds.x;
-    }
-    // If height is too large for parent, shrink it
-    if (constrainedBounds.height > parentBounds.height) {
-      constrainedBounds.height = parentBounds.height;
-      constrainedBounds.y = parentBounds.y;
     }
 
     return constrainedBounds;
