@@ -387,8 +387,11 @@ export class RenderEngine {
       const selectedNode = findNode(this.scene, selectedId);
 
       if (selectedNode) {
+        // Find parent/container bounds (smallest node that fully contains the selected node)
+        const parentBounds = this.findParentBounds(selectedNode, nodes);
+
         // Calculate and render distance measurements from all sides
-        const measurements = calculateDistanceMeasurements(selectedNode, nodes);
+        const measurements = calculateDistanceMeasurements(selectedNode, nodes, parentBounds);
         measurements.forEach(measurement => {
           renderer.renderDistanceMeasurement(measurement, camera.viewMatrix, camera.zoom);
         });
@@ -611,6 +614,51 @@ export class RenderEngine {
     }
   }
   
+  /**
+   * Find the parent/container bounds for a node
+   * Returns the bounds of the smallest node that fully contains the selected node
+   * Falls back to scene root bounds if no parent container found
+   */
+  private findParentBounds(
+    selectedNode: SceneNode,
+    allNodes: SceneNode[]
+  ): { x: number; y: number; width: number; height: number } | undefined {
+    const bounds = selectedNode.bounds;
+    let parentBounds: { x: number; y: number; width: number; height: number } | undefined;
+    let smallestArea = Infinity;
+
+    // Find the smallest container that fully contains the selected node
+    allNodes.forEach((node) => {
+      if (node.id === selectedNode.id) return;
+
+      const nb = node.bounds;
+      // Check if this node fully contains the selected node
+      if (nb.x <= bounds.x &&
+          nb.y <= bounds.y &&
+          nb.x + nb.width >= bounds.x + bounds.width &&
+          nb.y + nb.height >= bounds.y + bounds.height) {
+        const area = nb.width * nb.height;
+        // Find the smallest containing node (closest parent)
+        if (area < smallestArea) {
+          smallestArea = area;
+          parentBounds = { x: nb.x, y: nb.y, width: nb.width, height: nb.height };
+        }
+      }
+    });
+
+    // If no parent found but we have a scene, use scene root bounds
+    if (!parentBounds && this.scene && this.scene.id !== selectedNode.id) {
+      parentBounds = {
+        x: this.scene.bounds.x,
+        y: this.scene.bounds.y,
+        width: this.scene.bounds.width,
+        height: this.scene.bounds.height,
+      };
+    }
+
+    return parentBounds;
+  }
+
   /**
    * Dispatch performance metrics event
    */

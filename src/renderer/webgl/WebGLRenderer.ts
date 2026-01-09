@@ -669,7 +669,7 @@ export class WebGLRenderer {
   }
 
   /**
-   * Render vertical hatching lines within a rectangle
+   * Render diagonal hatching lines within a rectangle (Figma-style)
    */
   private renderHatchingPattern(
     x: number,
@@ -684,10 +684,68 @@ export class WebGLRenderer {
     const lineSpacing = spacing / zoom;
     const lineWidth = 1;
 
-    // Draw vertical lines
-    for (let lineX = x; lineX <= x + width; lineX += lineSpacing) {
-      this.renderLine(lineX, y, lineX, y + height, color, lineWidth, viewMatrix);
+    // Light grey background for visibility
+    this.renderRectangle(x, y, width, height, 'rgba(200, 200, 200, 0.3)', viewMatrix);
+
+    // Draw diagonal lines (from top-left to bottom-right)
+    const maxDist = width + height;
+    for (let d = -height; d <= maxDist; d += lineSpacing) {
+      // Calculate clipped line endpoints within the rectangle
+      const x1 = x + d;
+      const y1 = y;
+      const x2 = x + d + height;
+      const y2 = y + height;
+
+      // Clip to rectangle bounds
+      const clippedStart = this.clipLineToRect(x1, y1, x2, y2, x, y, width, height);
+      if (clippedStart) {
+        this.renderLine(clippedStart.x1, clippedStart.y1, clippedStart.x2, clippedStart.y2, color, lineWidth, viewMatrix);
+      }
     }
+  }
+
+  /**
+   * Clip a line segment to a rectangle
+   */
+  private clipLineToRect(
+    x1: number, y1: number, x2: number, y2: number,
+    rx: number, ry: number, rw: number, rh: number
+  ): { x1: number; y1: number; x2: number; y2: number } | null {
+    // Simple clipping for diagonal lines
+    const left = rx;
+    const right = rx + rw;
+    const top = ry;
+    const bottom = ry + rh;
+
+    // Calculate intersections with rectangle edges
+    let startX = x1, startY = y1, endX = x2, endY = y2;
+
+    // Clip start point
+    if (startX < left) {
+      startY = y1 + (y2 - y1) * (left - x1) / (x2 - x1);
+      startX = left;
+    }
+    if (startY < top) {
+      startX = x1 + (x2 - x1) * (top - y1) / (y2 - y1);
+      startY = top;
+    }
+
+    // Clip end point
+    if (endX > right) {
+      endY = y1 + (y2 - y1) * (right - x1) / (x2 - x1);
+      endX = right;
+    }
+    if (endY > bottom) {
+      endX = x1 + (x2 - x1) * (bottom - y1) / (y2 - y1);
+      endY = bottom;
+    }
+
+    // Check if line is within bounds
+    if (startX > right || endX < left || startY > bottom || endY < top) {
+      return null;
+    }
+
+    return { x1: startX, y1: startY, x2: endX, y2: endY };
   }
 
   /**
@@ -807,7 +865,7 @@ export class WebGLRenderer {
   }
 
   /**
-   * Render text label (simplified - just a background for now)
+   * Render text label with white background and black text indicator
    */
   private renderTextLabel(
     text: string,
@@ -816,11 +874,20 @@ export class WebGLRenderer {
     viewMatrix: mat3,
     zoom: number
   ): void {
-    // For now, just render a small background rectangle
-    // Proper text rendering would require a texture atlas
-    const width = text.length * 6 / zoom;
-    const height = 12 / zoom;
-    this.renderRectangle(x - width / 2, y, width, height, 'rgba(255, 0, 255, 0.8)', viewMatrix);
+    // Render white background with border for label
+    const padding = 4 / zoom;
+    const width = text.length * 7 / zoom + padding * 2;
+    const height = 14 / zoom + padding;
+    const labelX = x - width / 2;
+    const labelY = y - height / 2;
+
+    // White background
+    this.renderRectangle(labelX, labelY, width, height, 'rgba(255, 255, 255, 0.95)', viewMatrix);
+    // Dark border
+    this.renderLine(labelX, labelY, labelX + width, labelY, '#333333', 1, viewMatrix);
+    this.renderLine(labelX + width, labelY, labelX + width, labelY + height, '#333333', 1, viewMatrix);
+    this.renderLine(labelX + width, labelY + height, labelX, labelY + height, '#333333', 1, viewMatrix);
+    this.renderLine(labelX, labelY + height, labelX, labelY, '#333333', 1, viewMatrix);
   }
 
   /**

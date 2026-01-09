@@ -251,7 +251,6 @@ export class Canvas2DRenderer {
 
     ctx.save();
     ctx.strokeStyle = '#ff00ff';
-    ctx.fillStyle = '#ff00ff';
     ctx.lineWidth = 1 / zoom;
     ctx.setLineDash([4 / zoom, 4 / zoom]);
 
@@ -277,13 +276,10 @@ export class Canvas2DRenderer {
       ctx.lineTo(toX, centerY + 5 / zoom);
       ctx.stroke();
 
-      // Draw label
+      // Draw label with white background and black text
       const labelX = (fromX + toX) / 2;
-      const labelY = centerY - 8 / zoom;
-      ctx.font = `${12 / zoom}px Arial`;
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'bottom';
-      ctx.fillText(label, labelX, labelY);
+      const labelY = centerY - 12 / zoom;
+      this.renderDistanceLabel(label, labelX, labelY, zoom);
     } else {
       const fromY = fromBounds.y + fromBounds.height;
       const toY = toBounds.y;
@@ -306,20 +302,50 @@ export class Canvas2DRenderer {
       ctx.lineTo(centerX + 5 / zoom, toY);
       ctx.stroke();
 
-      // Draw label
-      const labelX = centerX + 8 / zoom;
+      // Draw label with white background and black text
+      const labelX = centerX + 12 / zoom;
       const labelY = (fromY + toY) / 2;
-      ctx.font = `${12 / zoom}px Arial`;
-      ctx.textAlign = 'left';
-      ctx.textBaseline = 'middle';
-      ctx.fillText(label, labelX, labelY);
+      this.renderDistanceLabel(label, labelX, labelY, zoom);
     }
 
     ctx.restore();
   }
 
   /**
-   * Render vertical hatching lines within a rectangle
+   * Render distance label with white background and black text
+   */
+  private renderDistanceLabel(
+    label: string,
+    x: number,
+    y: number,
+    zoom: number
+  ): void {
+    const { ctx } = this;
+    const fontSize = 11 / zoom;
+    const padding = 3 / zoom;
+
+    ctx.font = `bold ${fontSize}px Arial`;
+    const textWidth = ctx.measureText(label).width;
+    const bgWidth = textWidth + padding * 2;
+    const bgHeight = fontSize + padding * 2;
+
+    // White background with border
+    ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+    ctx.fillRect(x - bgWidth / 2, y - bgHeight / 2, bgWidth, bgHeight);
+    ctx.strokeStyle = '#333333';
+    ctx.lineWidth = 1 / zoom;
+    ctx.setLineDash([]);
+    ctx.strokeRect(x - bgWidth / 2, y - bgHeight / 2, bgWidth, bgHeight);
+
+    // Black text
+    ctx.fillStyle = '#000000';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(label, x, y);
+  }
+
+  /**
+   * Render diagonal hatching lines within a rectangle (Figma-style)
    */
   private renderHatching(
     x: number,
@@ -338,15 +364,20 @@ export class Canvas2DRenderer {
     ctx.rect(x, y, width, height);
     ctx.clip();
 
+    // Light grey background for visibility
+    ctx.fillStyle = 'rgba(200, 200, 200, 0.3)';
+    ctx.fillRect(x, y, width, height);
+
     ctx.strokeStyle = color;
     ctx.lineWidth = 1 / zoom;
     ctx.setLineDash([]);
 
-    // Draw vertical lines
-    for (let lineX = x; lineX <= x + width; lineX += lineSpacing) {
+    // Draw diagonal lines (from top-left to bottom-right)
+    const maxDist = width + height;
+    for (let d = -height; d <= maxDist; d += lineSpacing) {
       ctx.beginPath();
-      ctx.moveTo(lineX, y);
-      ctx.lineTo(lineX, y + height);
+      ctx.moveTo(x + d, y);
+      ctx.lineTo(x + d + height, y + height);
       ctx.stroke();
     }
 
