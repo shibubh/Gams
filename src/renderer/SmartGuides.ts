@@ -3,7 +3,7 @@
  * Shows alignment and spacing guides during interactions
  */
 
-import type { SceneNode, Bounds, Point } from '../../types/core';
+import type { SceneNode, Bounds, Point } from '../types/core';
 
 export interface AlignmentGuide {
   type: 'vertical' | 'horizontal';
@@ -139,8 +139,7 @@ function addAlignment(
  */
 export function calculateSpacingGuides(
   movingNode: SceneNode,
-  allNodes: SceneNode[],
-  threshold: number = 2
+  allNodes: SceneNode[]
 ): SpacingGuide[] {
   const guides: SpacingGuide[] = [];
   const bounds = movingNode.bounds;
@@ -253,10 +252,10 @@ export function calculateDistanceMeasurements(
   const measurements: DistanceMeasurement[] = [];
   const bounds = movingNode.bounds;
 
-  let nearestLeft: { node: SceneNode; distance: number } | null = null;
-  let nearestRight: { node: SceneNode; distance: number } | null = null;
-  let nearestTop: { node: SceneNode; distance: number } | null = null;
-  let nearestBottom: { node: SceneNode; distance: number } | null = null;
+  let nearestLeft: { node: any; distance: number } | undefined = undefined;
+  let nearestRight: { node: any; distance: number } | undefined = undefined;
+  let nearestTop: { node: any; distance: number } | undefined = undefined;
+  let nearestBottom: { node: any; distance: number } | undefined = undefined;
 
   allNodes.forEach((node) => {
     if (node.id === movingNode.id) return;
@@ -266,32 +265,32 @@ export function calculateDistanceMeasurements(
     // Check left
     if (nb.x + nb.width < bounds.x) {
       const distance = bounds.x - (nb.x + nb.width);
-      if (!nearestLeft || distance < nearestLeft.distance) {
-        nearestLeft = { node, distance };
+      if (!nearestLeft || distance < (nearestLeft as any).distance) {
+        nearestLeft = { node: node as any, distance };
       }
     }
 
     // Check right
     if (nb.x > bounds.x + bounds.width) {
       const distance = nb.x - (bounds.x + bounds.width);
-      if (!nearestRight || distance < nearestRight.distance) {
-        nearestRight = { node, distance };
+      if (!nearestRight || distance < (nearestRight as any).distance) {
+        nearestRight = { node: node as any, distance };
       }
     }
 
     // Check top
     if (nb.y + nb.height < bounds.y) {
       const distance = bounds.y - (nb.y + nb.height);
-      if (!nearestTop || distance < nearestTop.distance) {
-        nearestTop = { node, distance };
+      if (!nearestTop || distance < (nearestTop as any).distance) {
+        nearestTop = { node: node as any, distance };
       }
     }
 
     // Check bottom
     if (nb.y > bounds.y + bounds.height) {
       const distance = nb.y - (bounds.y + bounds.height);
-      if (!nearestBottom || distance < nearestBottom.distance) {
-        nearestBottom = { node, distance };
+      if (!nearestBottom || distance < (nearestBottom as any).distance) {
+        nearestBottom = { node: node as any, distance };
       }
     }
   });
@@ -303,43 +302,47 @@ export function calculateDistanceMeasurements(
   // Increased distance threshold for better visibility when selecting objects
   const maxDistance = 500;
 
-  if (nearestLeft && nearestLeft.distance < maxDistance) {
+  if (nearestLeft && (nearestLeft as any).distance < maxDistance) {
+    const left = nearestLeft as any;
     measurements.push({
       from: { x: bounds.x, y: centerY },
-      to: { x: nearestLeft.node.bounds.x + nearestLeft.node.bounds.width, y: centerY },
+      to: { x: left.node.bounds.x + left.node.bounds.width, y: centerY },
       direction: 'horizontal',
-      distance: nearestLeft.distance,
-      label: `${Math.round(nearestLeft.distance)}`,
+      distance: left.distance,
+      label: `${Math.round(left.distance)}`,
     });
   }
 
-  if (nearestRight && nearestRight.distance < maxDistance) {
+  if (nearestRight && (nearestRight as any).distance < maxDistance) {
+    const right = nearestRight as any;
     measurements.push({
       from: { x: bounds.x + bounds.width, y: centerY },
-      to: { x: nearestRight.node.bounds.x, y: centerY },
+      to: { x: right.node.bounds.x, y: centerY },
       direction: 'horizontal',
-      distance: nearestRight.distance,
-      label: `${Math.round(nearestRight.distance)}`,
+      distance: right.distance,
+      label: `${Math.round(right.distance)}`,
     });
   }
 
-  if (nearestTop && nearestTop.distance < maxDistance) {
+  if (nearestTop && (nearestTop as any).distance < maxDistance) {
+    const top = nearestTop as any;
     measurements.push({
       from: { x: centerX, y: bounds.y },
-      to: { x: centerX, y: nearestTop.node.bounds.y + nearestTop.node.bounds.height },
+      to: { x: centerX, y: top.node.bounds.y + top.node.bounds.height },
       direction: 'vertical',
-      distance: nearestTop.distance,
-      label: `${Math.round(nearestTop.distance)}`,
+      distance: top.distance,
+      label: `${Math.round(top.distance)}`,
     });
   }
 
-  if (nearestBottom && nearestBottom.distance < maxDistance) {
+  if (nearestBottom && (nearestBottom as any).distance < maxDistance) {
+    const bottom = nearestBottom as any;
     measurements.push({
       from: { x: centerX, y: bounds.y + bounds.height },
-      to: { x: centerX, y: nearestBottom.node.bounds.y },
+      to: { x: centerX, y: bottom.node.bounds.y },
       direction: 'vertical',
-      distance: nearestBottom.distance,
-      label: `${Math.round(nearestBottom.distance)}`,
+      distance: bottom.distance,
+      label: `${Math.round(bottom.distance)}`,
     });
   }
 

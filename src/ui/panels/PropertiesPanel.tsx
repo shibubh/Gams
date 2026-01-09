@@ -6,7 +6,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../../state/store';
 import { findNode, updateNode } from '../../engine/scene/sceneGraph';
-import type { SceneNode, NodeStyle, RectangleNode } from '../../types/core';
+import type { NodeStyle, RectangleNode } from '../../types/core';
 import './PropertiesPanel.css';
 
 export const PropertiesPanel: React.FC = () => {

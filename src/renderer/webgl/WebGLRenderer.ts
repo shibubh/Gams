@@ -502,12 +502,8 @@ export class WebGLRenderer {
   renderAlignmentGuide(
     guide: { type: 'vertical' | 'horizontal'; position: number },
     viewMatrix: mat3,
-    zoom: number
+    _zoom: number
   ): void {
-    const { gl } = this;
-    const width = this.viewport.width / zoom;
-    const height = this.viewport.height / zoom;
-
     // Calculate world bounds from view matrix
     const invView = mat3.create();
     mat3.invert(invView, viewMatrix);

@@ -7,17 +7,14 @@ import { CameraController } from '../engine/camera';
 import { WasmAdapter } from '../engine/wasm/WasmAdapter';
 import { WebGLRenderer } from './webgl/WebGLRenderer';
 import { Canvas2DRenderer } from './canvas2d/Canvas2DRenderer';
-import { 
+import {
   calculateAlignmentGuides,
   calculateSpacingGuides,
-  calculateDistanceMeasurements,
-  type AlignmentGuide,
-  type SpacingGuide,
-  type DistanceMeasurement
+  calculateDistanceMeasurements
 } from './SmartGuides';
-import { 
+import {
   getMarginPaddingVisualization,
-  type MarginPaddingVisualization 
+  calculateDistanceGuides
 } from './VisualGuides';
 import type {
   SceneNode,
@@ -463,7 +460,7 @@ export class RenderEngine {
     if (this.selectedNodes.size === 1 && this.scene) {
       const selectedId = Array.from(this.selectedNodes)[0];
       const selectedNode = findNode(this.scene, selectedId);
-      
+
       if (selectedNode) {
         const guides = calculateDistanceGuides(selectedNode, nodes, 500);
         guides.forEach(guide => {
