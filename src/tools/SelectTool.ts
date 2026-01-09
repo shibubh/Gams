@@ -194,6 +194,8 @@ export class SelectTool implements Tool {
     deltaX: number,
     deltaY: number
   ): Bounds {
+    if (!handle) return original; // Safety check
+    
     const { x, y, width, height } = original;
     const newBounds = { x, y, width, height };
 
@@ -237,13 +239,13 @@ export class SelectTool implements Tool {
     // Prevent negative dimensions
     if (newBounds.width < 10) {
       newBounds.width = 10;
-      if (handle?.includes('left')) {
+      if (handle.includes('left')) {
         newBounds.x = x + width - 10;
       }
     }
     if (newBounds.height < 10) {
       newBounds.height = 10;
-      if (handle?.includes('top')) {
+      if (handle.includes('top')) {
         newBounds.y = y + height - 10;
       }
     }

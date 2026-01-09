@@ -147,42 +147,33 @@ export const Canvas: React.FC = () => {
       // Tool shortcuts (case-insensitive)
       const key = event.key.toLowerCase();
       const setTool = useAppStore.getState().setTool;
+      const tools = toolsRef.current;
 
-      switch (key) {
-        case 'f':
+      // Map keys to tool types
+      const keyToTool: Record<string, ToolType> = {
+        'f': 'FRAME',
+        'v': 'SELECT',
+        'h': 'PAN',
+        'r': 'RECTANGLE',
+        'o': 'ELLIPSE',
+        'l': 'LINE',
+        't': 'TEXT',
+      };
+
+      const toolType = keyToTool[key];
+      
+      if (toolType) {
+        // Only switch if the tool is implemented
+        if (tools.has(toolType)) {
           event.preventDefault();
-          setTool('FRAME');
-          break;
-        case 'v':
-          event.preventDefault();
-          setTool('SELECT');
-          break;
-        case 'h':
-          event.preventDefault();
-          setTool('PAN');
-          break;
-        case 'r':
-          event.preventDefault();
-          setTool('RECTANGLE');
-          break;
-        case 'o':
-          event.preventDefault();
-          setTool('ELLIPSE');
-          break;
-        case 'l':
-          event.preventDefault();
-          setTool('LINE');
-          break;
-        case 't':
-          event.preventDefault();
-          setTool('TEXT');
-          break;
-        case 'escape':
-          event.preventDefault();
-          useAppStore.getState().clearSelection();
-          break;
-        default:
-          break;
+          setTool(toolType);
+        } else {
+          // Tool not implemented yet, log for debugging
+          console.warn(`Tool ${toolType} mapped to key '${key}' is not yet implemented`);
+        }
+      } else if (key === 'escape') {
+        event.preventDefault();
+        useAppStore.getState().clearSelection();
       }
     };
 
