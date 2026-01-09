@@ -57,7 +57,7 @@ export class SnappingService {
 
   private snapToGrid(pt: Vec2): SnapResult {
     const guides: SnapGuide[] = [];
-    let snapped = { ...pt };
+    const snapped = { ...pt };
 
     const gridX = Math.round(pt.x / GRID_SIZE) * GRID_SIZE;
     const gridY = Math.round(pt.y / GRID_SIZE) * GRID_SIZE;
@@ -88,7 +88,7 @@ export class SnappingService {
 
   private snapToObjects(pt: Vec2, nodes: Record<string, SceneNode>, rootId: string): SnapResult {
     const guides: SnapGuide[] = [];
-    let snapped = { ...pt };
+    const snapped = { ...pt };
     let closestX: { dist: number; value: number; nodeId: string } | null = null;
     let closestY: { dist: number; value: number; nodeId: string } | null = null;
 

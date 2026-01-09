@@ -34,7 +34,7 @@ export function CanvasEditor() {
   });
 
   const [activeTool, setActiveTool] = useState<ToolId>("select");
-  const [isInitialized, setIsInitialized] = useState(false);
+  const [zoom, setZoom] = useState(1);
 
   const document = useStore((state) => state.document);
   const canUndo = useStore((state) => state.history.past.length > 0);
@@ -42,8 +42,9 @@ export function CanvasEditor() {
 
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas || isInitialized) return;
+    if (!canvas) return;
 
+    let mounted = true;
     const store = getEngineStore();
 
     // Initialize renderer
@@ -61,7 +62,9 @@ export function CanvasEditor() {
 
     // Initialize tool router
     const toolRouter = new ToolRouter(store, cameraRef.current, (reason) => {
-      renderer.requestFrame(reason);
+      if (mounted) {
+        renderer.requestFrame(reason);
+      }
     });
     toolRouterRef.current = toolRouter;
 
@@ -72,6 +75,7 @@ export function CanvasEditor() {
 
     // Load document
     adapter.load().then((doc) => {
+      if (!mounted) return;
       store.dispatch({ type: "SET_DOCUMENT", document: doc });
       renderer.setDocument(doc);
       autosave.start();
@@ -80,6 +84,7 @@ export function CanvasEditor() {
 
     // Handle resize
     const handleResize = () => {
+      if (!mounted) return;
       const rect = canvas.getBoundingClientRect();
       cameraRef.current.viewportPx = { w: rect.width, h: rect.height };
       renderer.setCamera(cameraRef.current);
@@ -93,20 +98,28 @@ export function CanvasEditor() {
     const unsubscribe = store.subscribe(
       (doc) => doc,
       (doc) => {
+        if (!mounted) return;
         renderer.setDocument(doc);
         renderer.requestFrame("document changed");
       }
     );
 
-    setIsInitialized(true);
+    // Subscribe to camera zoom changes for UI update
+    const updateZoom = () => {
+      if (!mounted) return;
+      setZoom(cameraRef.current.zoom);
+    };
+    const zoomInterval = setInterval(updateZoom, 100);
 
     return () => {
+      mounted = false;
       window.removeEventListener("resize", handleResize);
+      clearInterval(zoomInterval);
       unsubscribe();
-      renderer.destroy();
       autosave.stop();
+      // Note: Don't destroy renderer here to avoid WebGL context issues in React strict mode
     };
-  }, [isInitialized]);
+  }, []); // Empty deps - run once
 
   const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
     toolRouterRef.current?.handlePointerDown(e.nativeEvent);
@@ -291,7 +304,7 @@ export function CanvasEditor() {
         }}
       >
         Objects: {Object.keys(document.nodes).length - 1} | Selected:{" "}
-        {document.selection.length} | Zoom: {Math.round(cameraRef.current.zoom * 100)}%
+        {document.selection.length} | Zoom: {Math.round(zoom * 100)}%
       </div>
     </div>
   );
