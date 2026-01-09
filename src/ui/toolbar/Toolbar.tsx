@@ -8,6 +8,7 @@ import type { ToolType } from '../../types/core';
 import './Toolbar.css';
 
 const tools: { type: ToolType; icon: string; label: string }[] = [
+  { type: 'FRAME' as ToolType, icon: '⬜', label: 'Frame (F)' },
   { type: 'SELECT' as ToolType, icon: '⌖', label: 'Select (V)' },
   { type: 'PAN' as ToolType, icon: '✋', label: 'Pan (H)' },
   { type: 'RECTANGLE' as ToolType, icon: '▭', label: 'Rectangle (R)' },

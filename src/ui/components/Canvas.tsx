@@ -9,6 +9,8 @@ import { PointerManager } from '../../interactions/pointer/PointerManager';
 import { SelectTool } from '../../tools/SelectTool';
 import { PanTool } from '../../tools/PanTool';
 import { RectangleTool } from '../../tools/RectangleTool';
+import { FrameTool } from '../../tools/FrameTool';
+import { EllipseTool } from '../../tools/EllipseTool';
 import type { Tool, ToolContext } from '../../tools/Tool';
 import { useAppStore, type AppState } from '../../state/store';
 import type { SceneNode, PointerState } from '../../types/core';
@@ -53,9 +55,11 @@ export const Canvas: React.FC = () => {
 
     // Initialize tools
     const tools = new Map<ToolType, Tool>();
+    tools.set('FRAME', new FrameTool(toolContext));
     tools.set('SELECT', new SelectTool(toolContext));
     tools.set('PAN', new PanTool(engine.getCamera(), toolContext));
     tools.set('RECTANGLE', new RectangleTool(toolContext));
+    tools.set('ELLIPSE', new EllipseTool(toolContext));
     toolsRef.current = tools;
 
     // Set initial tool

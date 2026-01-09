@@ -197,6 +197,7 @@ export type RenderLayer = typeof RenderLayer[keyof typeof RenderLayer];
 // ============================================================================
 
 export const ToolType = {
+  Frame: 'FRAME',
   Select: 'SELECT',
   Pan: 'PAN',
   Rectangle: 'RECTANGLE',
