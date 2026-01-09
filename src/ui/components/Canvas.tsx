@@ -35,9 +35,9 @@ export const Canvas: React.FC = () => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    // Create render engine (use Canvas2D for visual guides support)
+    // Create render engine (use WebGL for high performance)
     const engine = new RenderEngine(canvas, {
-      preferWebGL: false, // Use Canvas2D to support visual guides
+      preferWebGL: true,
       antialias: true,
     });
     engineRef.current = engine;

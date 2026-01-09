@@ -317,15 +317,15 @@ export class RenderEngine {
     const renderer = this.renderer as WebGLRenderer;
     const camera = this.camera.getCamera();
 
-    // Layer 1: Grid (optional)
-    // renderer.renderGrid(camera.viewMatrix, camera.zoom);
+    // Layer 0: Grid
+    renderer.renderGrid(camera.viewMatrix, camera.zoom);
 
-    // Layer 2: Shapes
+    // Layer 1: Shapes
     nodes.forEach((node) => {
       this.renderNodeWebGL(node, renderer, camera.viewMatrix as unknown as Float32Array);
     });
 
-    // Layer 3: Selection with resize handles
+    // Layer 2: Selection with resize handles
     nodes.forEach((node) => {
       if (this.selectedNodes.has(node.id)) {
         renderer.renderSelection(
@@ -346,6 +346,41 @@ export class RenderEngine {
         );
       }
     });
+
+    // Layer 3: Visual guides (distance measurements)
+    if (this.selectedNodes.size === 1 && this.scene) {
+      const selectedId = Array.from(this.selectedNodes)[0];
+      const selectedNode = findNode(this.scene, selectedId);
+      
+      if (selectedNode) {
+        const guides = calculateDistanceGuides(selectedNode, nodes, 500);
+        guides.forEach(guide => {
+          renderer.renderDistanceGuide(
+            guide.from,
+            guide.to,
+            guide.direction,
+            guide.label,
+            camera.viewMatrix,
+            camera.zoom
+          );
+        });
+
+        // Render margin/padding visualization
+        const mpViz = getMarginPaddingVisualization(
+          selectedNode,
+          selectedNode.style as unknown as NodeStyleExtended
+        );
+        
+        if (mpViz) {
+          if (mpViz.margin) {
+            renderer.renderMargin(mpViz.bounds, mpViz.margin, camera.viewMatrix, camera.zoom);
+          }
+          if (mpViz.padding) {
+            renderer.renderPadding(mpViz.bounds, mpViz.padding, camera.viewMatrix, camera.zoom);
+          }
+        }
+      }
+    }
   }
 
   /**
