@@ -11,6 +11,8 @@
   display: flex;
   gap: 4px;
   z-index: 1000;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
 }
 
 .toolbar-section {
@@ -21,6 +23,8 @@
 .toolbar-button {
   width: 40px;
   height: 40px;
+  min-width: 40px;
+  min-height: 40px;
   border: none;
   background: transparent;
   border-radius: 8px;
@@ -31,10 +35,18 @@
   transition: background-color 0.15s ease;
   font-size: 18px;
   color: #333;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .toolbar-button:hover {
   background: rgba(0, 0, 0, 0.05);
+}
+
+.toolbar-button:active {
+  background: rgba(0, 0, 0, 0.1);
 }
 
 .toolbar-button.active {
@@ -46,7 +58,12 @@
   background: #2563eb;
 }
 
+.toolbar-button.active:active {
+  background: #1d4ed8;
+}
+
 .toolbar-icon {
   user-select: none;
+  -webkit-user-select: none;
   pointer-events: none;
 }

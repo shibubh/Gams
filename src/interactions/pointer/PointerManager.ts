@@ -1,6 +1,12 @@
 /**
  * Pointer abstraction layer.
  * Normalizes mouse, pen, and touch events into a unified interface.
+ * 
+ * Touch Support:
+ * - Single touch: Works like mouse (select, drag, draw)
+ * - Two-finger pinch: Zoom in/out centered on gesture
+ * - Two-finger pan: Move the camera/viewport
+ * - Multi-touch gestures are handled separately from single-touch interactions
  */
 
 import type { PointerState } from '../../types/core';
@@ -17,6 +23,11 @@ export class PointerManager {
   private onPointerMoveHandlers: PointerEventHandler[] = [];
   private onPointerUpHandlers: PointerEventHandler[] = [];
   private onWheelHandlers: ((deltaY: number, x: number, y: number) => void)[] = [];
+
+  // Multi-touch gesture tracking
+  private activePointers: Map<number, PointerEvent> = new Map();
+  private lastPinchDistance: number | null = null;
+  private lastPinchCenter: { x: number; y: number } | null = null;
 
   constructor(canvas: HTMLCanvasElement, camera: CameraController) {
     this.canvas = canvas;
@@ -55,15 +66,32 @@ export class PointerManager {
     e.preventDefault();
     this.canvas.setPointerCapture(e.pointerId);
 
+    // Track pointer for multi-touch gestures
+    this.activePointers.set(e.pointerId, e);
+
     const state = this.createPointerState(e);
     this.currentState = state;
 
-    this.onPointerDownHandlers.forEach((handler) => handler(state));
+    // Only fire handlers for single touch or primary pointer
+    if (this.activePointers.size === 1 || e.isPrimary) {
+      this.onPointerDownHandlers.forEach((handler) => handler(state));
+    }
   };
 
   private handlePointerMove = (e: PointerEvent): void => {
+    // Update active pointer
+    if (this.activePointers.has(e.pointerId)) {
+      this.activePointers.set(e.pointerId, e);
+    }
+
     const state = this.createPointerState(e);
     this.currentState = state;
+
+    // Handle multi-touch gestures
+    if (this.activePointers.size === 2) {
+      this.handleTwoFingerGesture();
+      return; // Don't fire normal move handlers during multi-touch
+    }
 
     this.onPointerMoveHandlers.forEach((handler) => handler(state));
   };
@@ -72,10 +100,22 @@ export class PointerManager {
     e.preventDefault();
     this.canvas.releasePointerCapture(e.pointerId);
 
+    // Remove pointer from tracking
+    this.activePointers.delete(e.pointerId);
+
+    // Reset gesture state when all pointers are released
+    if (this.activePointers.size === 0) {
+      this.lastPinchDistance = null;
+      this.lastPinchCenter = null;
+    }
+
     const state = this.createPointerState(e);
     this.currentState = state;
 
-    this.onPointerUpHandlers.forEach((handler) => handler(state));
+    // Only fire handlers for single touch or primary pointer
+    if (this.activePointers.size === 0 || e.isPrimary) {
+      this.onPointerUpHandlers.forEach((handler) => handler(state));
+    }
   };
 
   private handleWheel = (e: WheelEvent): void => {
@@ -87,6 +127,56 @@ export class PointerManager {
 
     this.onWheelHandlers.forEach((handler) => handler(e.deltaY, x, y));
   };
+
+  /**
+   * Handle two-finger gestures (pinch-to-zoom and two-finger pan).
+   */
+  private handleTwoFingerGesture(): void {
+    const pointers = Array.from(this.activePointers.values());
+    if (pointers.length !== 2) return;
+
+    const [p1, p2] = pointers;
+    const rect = this.canvas.getBoundingClientRect();
+
+    // Calculate positions relative to canvas
+    const x1 = p1.clientX - rect.left;
+    const y1 = p1.clientY - rect.top;
+    const x2 = p2.clientX - rect.left;
+    const y2 = p2.clientY - rect.top;
+
+    // Calculate center point between two fingers
+    const centerX = (x1 + x2) / 2;
+    const centerY = (y1 + y2) / 2;
+
+    // Calculate distance between two fingers
+    const distance = Math.sqrt(
+      Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2)
+    );
+
+    // Handle pinch-to-zoom
+    if (this.lastPinchDistance !== null) {
+      const deltaDistance = distance - this.lastPinchDistance;
+      const zoomDelta = deltaDistance * 2; // Scale factor for sensitivity
+
+      // Zoom centered on the midpoint between fingers
+      this.onWheelHandlers.forEach((handler) => 
+        handler(-zoomDelta, centerX, centerY)
+      );
+    }
+
+    // Handle two-finger pan
+    if (this.lastPinchCenter !== null) {
+      const deltaX = centerX - this.lastPinchCenter.x;
+      const deltaY = centerY - this.lastPinchCenter.y;
+
+      // Pan the camera
+      this.camera.pan(-deltaX, -deltaY);
+    }
+
+    // Update state for next frame
+    this.lastPinchDistance = distance;
+    this.lastPinchCenter = { x: centerX, y: centerY };
+  }
 
   private createPointerState(e: PointerEvent): PointerState {
     const rect = this.canvas.getBoundingClientRect();
@@ -174,5 +264,10 @@ export class PointerManager {
     this.onPointerMoveHandlers = [];
     this.onPointerUpHandlers = [];
     this.onWheelHandlers = [];
+    
+    // Clear multi-touch state
+    this.activePointers.clear();
+    this.lastPinchDistance = null;
+    this.lastPinchCenter = null;
   }
 }

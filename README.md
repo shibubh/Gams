@@ -168,25 +168,38 @@ npm run preview
 - Use the Pan tool (H key)
 - Or hold Space + drag with any tool
 - Or middle mouse drag
+- **Touch:** Two-finger drag to pan
 
 **Zoom:**
 - Scroll wheel to zoom in/out
 - Zoom is centered on cursor position
+- **Touch:** Pinch with two fingers to zoom in/out
 
 **Create shapes:**
 1. Select a tool from the toolbar (or use keyboard shortcut)
 2. Click and drag on canvas to create the shape
 3. Release to finish
+4. **Touch:** Tap and drag with one finger
 
 **Select and move:**
 1. Use Select tool (V key)
 2. Click on a shape to select
 3. Drag to move
 4. Use handles to resize
+5. **Touch:** Tap to select, drag to move
 
 **Multi-select:**
 - Shift+Click to add to selection
 - Cmd/Ctrl+Click to toggle selection
+
+### Touch Support
+
+The canvas fully supports touch interactions:
+- **Single touch:** Works like mouse - select, drag, draw
+- **Two-finger pinch:** Zoom in/out centered on gesture
+- **Two-finger pan:** Move the camera/viewport
+- **Tap:** Select tools and objects
+- Touch gestures are optimized for smooth, responsive interaction
 
 ## 🏛️ Architecture Principles
 

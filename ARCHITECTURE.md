@@ -259,6 +259,34 @@ Unified abstraction over mouse, pen, and touch events.
 - Converts screen → world coordinates
 - Handles pointer capture
 - Supports wheel events for zoom
+- **Multi-touch gesture support:**
+  - Two-finger pinch-to-zoom
+  - Two-finger pan
+  - Gesture detection and handling
+
+**Touch Gesture Implementation:**
+
+The PointerManager tracks multiple active pointers and detects multi-touch gestures:
+
+```typescript
+// Track active pointers for multi-touch
+private activePointers: Map<number, PointerEvent> = new Map();
+private lastPinchDistance: number | null = null;
+private lastPinchCenter: { x: number; y: number } | null = null;
+
+// Two-finger gesture detection
+if (activePointers.size === 2) {
+  // Calculate distance between fingers for pinch-to-zoom
+  // Calculate center point for pan gesture
+  // Apply zoom and pan transformations
+}
+```
+
+**Gesture Behavior:**
+- **Single touch**: Treated as primary pointer (mouse-like behavior)
+- **Two-finger pinch**: Zoom centered on midpoint between fingers
+- **Two-finger pan**: Move camera by gesture delta
+- **Touch isolation**: Multi-touch gestures don't trigger single-touch handlers
 
 **Pointer State:**
 ```typescript
