@@ -8,11 +8,6 @@ import { WasmAdapter } from '../engine/wasm/WasmAdapter';
 import { WebGLRenderer } from './webgl/WebGLRenderer';
 import { Canvas2DRenderer } from './canvas2d/Canvas2DRenderer';
 import {
-  calculateAlignmentGuides,
-  calculateSpacingGuides,
-  calculateDistanceMeasurements
-} from './SmartGuides';
-import {
   getMarginPaddingVisualization,
   calculateDistanceGuides
 } from './VisualGuides';
@@ -321,6 +316,9 @@ export class RenderEngine {
     const renderer = this.renderer as WebGLRenderer;
     const camera = this.camera.getCamera();
     const appState = useAppStore.getState();
+    
+    // Pre-calculate visible node IDs for smart guide calculations
+    const visibleNodeIds = this.wasmInitialized ? nodes.map(n => n.id) : [];
 
     // Layer 0: Grid
     renderer.renderGrid(camera.viewMatrix, camera.zoom);
@@ -356,7 +354,7 @@ export class RenderEngine {
 
     // Layer 3: Figma-style Smart Guides
     // During drag/resize: show alignment and spacing guides
-    if ((appState.isDragging || appState.isResizing) && appState.draggedNodes.size > 0 && this.scene) {
+    if ((appState.isDragging || appState.isResizing) && appState.draggedNodes.size > 0 && this.scene && this.wasmInitialized) {
       const draggedId = Array.from(appState.draggedNodes)[0];
       const draggedNode = findNode(this.scene, draggedId);
 
@@ -364,29 +362,52 @@ export class RenderEngine {
         // Get all nodes from scene to find parent (not just visible nodes)
         const allNodes = collectAllNodes(this.scene);
         
-        // Alignment guides (magenta lines when edges/centers align)
-        const alignmentGuides = calculateAlignmentGuides(draggedNode, nodes);
+        // Alignment guides (magenta lines when edges/centers align) - use WASM
+        const alignmentGuides = this.wasmAdapter.calculateAlignmentGuides(draggedId, visibleNodeIds);
         alignmentGuides.forEach(guide => {
-          renderer.renderAlignmentGuide(guide, camera.viewMatrix, camera.zoom);
+          // Convert WASM guide format to renderer format
+          const guideForRenderer = {
+            type: guide.type,
+            position: guide.position,
+            alignmentType: guide.alignmentType,
+            nodes: [], // We don't need node IDs for rendering, just the count
+          };
+          renderer.renderAlignmentGuide(guideForRenderer, camera.viewMatrix, camera.zoom);
         });
 
-        // Spacing guides (show when spacing is equal)
-        const spacingGuides = calculateSpacingGuides(draggedNode, nodes);
+        // Spacing guides (show when spacing is equal) - use WASM
+        const spacingGuides = this.wasmAdapter.calculateSpacingGuides(draggedId, visibleNodeIds);
         spacingGuides.forEach(guide => {
-          renderer.renderSpacingGuide(guide, camera.viewMatrix, camera.zoom);
+          // Convert WASM guide format to renderer format
+          const guideForRenderer = {
+            type: guide.type,
+            from: guide.from,
+            to: guide.to,
+            spacing: guide.spacing,
+            label: `${Math.round(guide.spacing)}`,
+          };
+          renderer.renderSpacingGuide(guideForRenderer, camera.viewMatrix, camera.zoom);
         });
 
-        // Distance measurements (to nearest objects or parent bounds)
+        // Distance measurements (to nearest objects or parent bounds) - use WASM
         const parentBounds = this.findParentBounds(draggedNode, allNodes);
-        const measurements = calculateDistanceMeasurements(draggedNode, nodes, parentBounds);
+        const measurements = this.wasmAdapter.calculateDistanceMeasurements(draggedId, visibleNodeIds, parentBounds);
         measurements.forEach(measurement => {
-          renderer.renderDistanceMeasurement(measurement, camera.viewMatrix, camera.zoom);
+          // Convert WASM measurement format to renderer format
+          const measurementForRenderer = {
+            from: measurement.from,
+            to: measurement.to,
+            direction: measurement.direction,
+            distance: measurement.distance,
+            label: `${Math.round(measurement.distance)}`,
+          };
+          renderer.renderDistanceMeasurement(measurementForRenderer, camera.viewMatrix, camera.zoom);
         });
       }
     }
 
     // When object is selected (not dragging): show distance from all sides
-    if (this.selectedNodes.size === 1 && !appState.isDragging && !appState.isResizing && this.scene) {
+    if (this.selectedNodes.size === 1 && !appState.isDragging && !appState.isResizing && this.scene && this.wasmInitialized) {
       const selectedId = Array.from(this.selectedNodes)[0];
       const selectedNode = findNode(this.scene, selectedId);
 
@@ -397,10 +418,18 @@ export class RenderEngine {
         // Find parent/container bounds (smallest node that fully contains the selected node)
         const parentBounds = this.findParentBounds(selectedNode, allNodes);
 
-        // Calculate and render distance measurements from all sides
-        const measurements = calculateDistanceMeasurements(selectedNode, nodes, parentBounds);
+        // Calculate and render distance measurements from all sides - use WASM
+        const measurements = this.wasmAdapter.calculateDistanceMeasurements(selectedId, visibleNodeIds, parentBounds);
         measurements.forEach(measurement => {
-          renderer.renderDistanceMeasurement(measurement, camera.viewMatrix, camera.zoom);
+          // Convert WASM measurement format to renderer format
+          const measurementForRenderer = {
+            from: measurement.from,
+            to: measurement.to,
+            direction: measurement.direction,
+            distance: measurement.distance,
+            label: `${Math.round(measurement.distance)}`,
+          };
+          renderer.renderDistanceMeasurement(measurementForRenderer, camera.viewMatrix, camera.zoom);
         });
       }
     }
