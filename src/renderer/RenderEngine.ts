@@ -478,6 +478,7 @@ export class RenderEngine {
         const fillColor = node.style.fill?.color;
         const strokeColor = node.style.stroke?.color;
         const strokeWidth = node.style.stroke?.width || 1;
+        const cornerRadius = (node as any).cornerRadius || 0;
         
         renderer.renderRectangle(
           node.bounds.x,
@@ -486,7 +487,8 @@ export class RenderEngine {
           node.bounds.height,
           fillColor,
           strokeColor,
-          strokeWidth
+          strokeWidth,
+          cornerRadius
         );
         break;
       }

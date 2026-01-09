@@ -67,19 +67,40 @@ export class Canvas2DRenderer {
     height: number,
     fillColor?: string,
     strokeColor?: string,
-    strokeWidth: number = 1
+    strokeWidth: number = 1,
+    cornerRadius: number = 0
   ): void {
     const { ctx } = this;
 
-    if (fillColor) {
-      ctx.fillStyle = fillColor;
-      ctx.fillRect(x, y, width, height);
+    ctx.beginPath();
+
+    if (cornerRadius > 0) {
+      // Draw rounded rectangle
+      const radius = Math.min(cornerRadius, width / 2, height / 2);
+      ctx.moveTo(x + radius, y);
+      ctx.lineTo(x + width - radius, y);
+      ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
+      ctx.lineTo(x + width, y + height - radius);
+      ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+      ctx.lineTo(x + radius, y + height);
+      ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
+      ctx.lineTo(x, y + radius);
+      ctx.quadraticCurveTo(x, y, x + radius, y);
+      ctx.closePath();
+    } else {
+      // Draw regular rectangle
+      ctx.rect(x, y, width, height);
     }
 
-    if (strokeColor) {
+    if (fillColor) {
+      ctx.fillStyle = fillColor;
+      ctx.fill();
+    }
+
+    if (strokeColor && strokeWidth > 0) {
       ctx.strokeStyle = strokeColor;
       ctx.lineWidth = strokeWidth;
-      ctx.strokeRect(x, y, width, height);
+      ctx.stroke();
     }
   }
 
