@@ -1,5 +1,6 @@
 /**
  * Select Tool - Handle node selection, drag, resize, rotate.
+ * When moving frames, all children move with the frame.
  */
 
 import type { PointerState, Point, ToolType } from '../types';
@@ -72,20 +73,11 @@ export class SelectTool implements Tool {
     const deltaY = state.worldPosition.y - this.dragStart.y;
 
     // Update each selected node's position
+    // For frames, this will automatically move all children
+    // because children positions are relative to the frame
     let updatedScene = scene;
     this.draggedNodeIds.forEach((nodeId) => {
-      // Get the current node to read its bounds
-      const currentNode = findNode(updatedScene, nodeId);
-      if (currentNode) {
-        // Update the node's bounds with new position
-        const newBounds = {
-          x: currentNode.bounds.x + deltaX,
-          y: currentNode.bounds.y + deltaY,
-          width: currentNode.bounds.width,
-          height: currentNode.bounds.height,
-        };
-        updatedScene = updateNode(updatedScene, nodeId, { bounds: newBounds });
-      }
+      updatedScene = this.moveNodeAndChildren(updatedScene, nodeId, deltaX, deltaY);
     });
 
     this.context.updateScene(updatedScene);
@@ -107,5 +99,38 @@ export class SelectTool implements Tool {
     // Tool deactivated
     this.isDragging = false;
     this.dragStart = null;
+  }
+
+  /**
+   * Move a node and all its children.
+   * When moving a frame, all child shapes move with it.
+   */
+  private moveNodeAndChildren(
+    scene: any,
+    nodeId: string,
+    deltaX: number,
+    deltaY: number
+  ): any {
+    const currentNode = findNode(scene, nodeId);
+    if (!currentNode) return scene;
+
+    // Update the node's position
+    const newBounds = {
+      x: currentNode.bounds.x + deltaX,
+      y: currentNode.bounds.y + deltaY,
+      width: currentNode.bounds.width,
+      height: currentNode.bounds.height,
+    };
+
+    let updatedScene = updateNode(scene, nodeId, { bounds: newBounds });
+
+    // If this node has children (like a frame), move them too
+    if (currentNode.children && currentNode.children.length > 0) {
+      currentNode.children.forEach((child: any) => {
+        updatedScene = this.moveNodeAndChildren(updatedScene, child.id, deltaX, deltaY);
+      });
+    }
+
+    return updatedScene;
   }
 }

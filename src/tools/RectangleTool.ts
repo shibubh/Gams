@@ -1,10 +1,10 @@
 /**
- * Rectangle Tool - Draw rectangles.
+ * Rectangle Tool - Draw rectangles inside frames.
  */
 
 import type { PointerState, Point, Bounds, ToolType } from '../types';
 import type { Tool, ToolContext } from './Tool';
-import { createRectangle, addChild, updateNode } from '../engine/scene/sceneGraph';
+import { createRectangle, addChild, updateNode, getNodesAtPoint } from '../engine/scene/sceneGraph';
 
 export class RectangleTool implements Tool {
   readonly type: ToolType = 'RECTANGLE';
@@ -14,18 +14,33 @@ export class RectangleTool implements Tool {
   private startPoint: Point | null = null;
   private isDrawing = false;
   private currentNodeId: string | null = null;
+  private targetFrameId: string | null = null;
 
   constructor(context: ToolContext) {
     this.context = context;
   }
 
   onPointerDown(state: PointerState): void {
+    const scene = this.context.getScene();
+    if (!scene) return;
+
+    // Find frame at pointer position
+    const nodesAtPoint = getNodesAtPoint(scene, state.worldPosition);
+    const frame = nodesAtPoint.find(node => node.type === 'FRAME');
+    
+    if (!frame) {
+      // Cannot draw without a frame
+      console.warn('Cannot draw rectangle: No frame at position. Create a frame first.');
+      return;
+    }
+
+    this.targetFrameId = frame.id;
     this.isDrawing = true;
     this.startPoint = state.worldPosition;
   }
 
   onPointerMove(state: PointerState): void {
-    if (!this.isDrawing || !this.startPoint) return;
+    if (!this.isDrawing || !this.startPoint || !this.targetFrameId) return;
 
     const scene = this.context.getScene();
     if (!scene) return;
@@ -43,14 +58,14 @@ export class RectangleTool implements Tool {
       const newScene = updateNode(scene, this.currentNodeId, { bounds });
       this.context.updateScene(newScene);
     } else {
-      // Create new rectangle
+      // Create new rectangle inside the frame
       const rect = createRectangle('Rectangle', bounds, {
-        fill: { type: 'solid', color: '#3b82f6', opacity: 0.8 },
-        stroke: { color: '#1e40af', width: 2 },
+        fill: { type: 'solid', color: '#f59e0b', opacity: 0.8 },
+        stroke: { color: '#d97706', width: 2 },
       });
 
       this.currentNodeId = rect.id;
-      const newScene = addChild(scene, scene.id, rect);
+      const newScene = addChild(scene, this.targetFrameId, rect);
       this.context.updateScene(newScene);
     }
 
@@ -66,6 +81,7 @@ export class RectangleTool implements Tool {
     this.isDrawing = false;
     this.startPoint = null;
     this.currentNodeId = null;
+    this.targetFrameId = null;
   }
 
   onActivate(): void {
@@ -76,5 +92,6 @@ export class RectangleTool implements Tool {
     this.isDrawing = false;
     this.startPoint = null;
     this.currentNodeId = null;
+    this.targetFrameId = null;
   }
 }

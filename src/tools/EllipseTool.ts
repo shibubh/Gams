@@ -1,10 +1,10 @@
 /**
- * Ellipse Tool - Draw ellipses/circles.
+ * Ellipse Tool - Draw ellipses/circles inside frames.
  */
 
 import type { PointerState, Point, Bounds, ToolType } from '../types';
 import type { Tool, ToolContext } from './Tool';
-import { createEllipse, addChild, findNode, updateNode } from '../engine/scene/sceneGraph';
+import { createEllipse, addChild, updateNode, getNodesAtPoint } from '../engine/scene/sceneGraph';
 
 export class EllipseTool implements Tool {
   readonly type: ToolType = 'ELLIPSE';
@@ -14,33 +14,36 @@ export class EllipseTool implements Tool {
   private startPoint: Point | null = null;
   private isDrawing = false;
   private currentNodeId: string | null = null;
+  private targetFrameId: string | null = null;
 
   constructor(context: ToolContext) {
     this.context = context;
   }
 
   onPointerDown(state: PointerState): void {
+    const scene = this.context.getScene();
+    if (!scene) return;
+
+    // Find frame at pointer position
+    const nodesAtPoint = getNodesAtPoint(scene, state.worldPosition);
+    const frame = nodesAtPoint.find(node => node.type === 'FRAME');
+    
+    if (!frame) {
+      // Cannot draw without a frame
+      console.warn('Cannot draw ellipse: No frame at position. Create a frame first.');
+      return;
+    }
+
+    this.targetFrameId = frame.id;
     this.isDrawing = true;
     this.startPoint = state.worldPosition;
   }
 
   onPointerMove(state: PointerState): void {
-    if (!this.isDrawing || !this.startPoint) return;
+    if (!this.isDrawing || !this.startPoint || !this.targetFrameId) return;
 
     const scene = this.context.getScene();
     if (!scene) return;
-
-    // Check if there's an active frame to draw in
-    const selectedNodes = Array.from(this.context.getSelection());
-    let targetFrameId = scene.id;
-    
-    // If a frame is selected, draw inside it
-    if (selectedNodes.length > 0) {
-      const selectedNode = findNode(scene, selectedNodes[0]);
-      if (selectedNode && selectedNode.type === 'FRAME') {
-        targetFrameId = selectedNode.id;
-      }
-    }
 
     // Calculate bounds
     const bounds: Bounds = {
@@ -55,14 +58,14 @@ export class EllipseTool implements Tool {
       const newScene = updateNode(scene, this.currentNodeId, { bounds });
       this.context.updateScene(newScene);
     } else {
-      // Create new ellipse
+      // Create new ellipse inside the frame
       const ellipse = createEllipse('Ellipse', bounds, {
         fill: { type: 'solid', color: '#60a5fa', opacity: 0.8 },
         stroke: { color: '#3b82f6', width: 2 },
       });
 
       this.currentNodeId = ellipse.id;
-      const newScene = addChild(scene, targetFrameId, ellipse);
+      const newScene = addChild(scene, this.targetFrameId, ellipse);
       this.context.updateScene(newScene);
     }
 
@@ -78,6 +81,7 @@ export class EllipseTool implements Tool {
     this.isDrawing = false;
     this.startPoint = null;
     this.currentNodeId = null;
+    this.targetFrameId = null;
   }
 
   onActivate(): void {
@@ -88,5 +92,6 @@ export class EllipseTool implements Tool {
     this.isDrawing = false;
     this.startPoint = null;
     this.currentNodeId = null;
+    this.targetFrameId = null;
   }
 }

@@ -66,6 +66,15 @@ export class WebGLRenderer {
       )
     );
 
+    // Ellipse shader
+    this.programs.set(
+      'ellipse',
+      this.createProgram(
+        this.getEllipseVertexShader(),
+        this.getEllipseFragmentShader()
+      )
+    );
+
     // Selection outline shader
     this.programs.set(
       'selection',
@@ -205,6 +214,59 @@ export class WebGLRenderer {
   }
 
   /**
+   * Render an ellipse shape.
+   */
+  renderEllipse(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    color: string,
+    viewMatrix: mat3
+  ): void {
+    const { gl } = this;
+    const program = this.programs.get('ellipse');
+    if (!program) return;
+
+    gl.useProgram(program);
+
+    // Create or get vertex array for ellipse
+    const vaoKey = 'ellipse';
+    let vao = this.vertexArrays.get(vaoKey);
+
+    if (!vao) {
+      vao = this.createEllipseVAO();
+      this.vertexArrays.set(vaoKey, vao);
+    }
+
+    gl.bindVertexArray(vao);
+
+    // Set uniforms
+    const uViewMatrix = gl.getUniformLocation(program, 'u_viewMatrix');
+    const uModelMatrix = gl.getUniformLocation(program, 'u_modelMatrix');
+    const uViewport = gl.getUniformLocation(program, 'u_viewport');
+    const uColor = gl.getUniformLocation(program, 'u_color');
+
+    // Create model matrix for this ellipse
+    const modelMatrix = mat3.create();
+    mat3.translate(modelMatrix, modelMatrix, [x, y]);
+    mat3.scale(modelMatrix, modelMatrix, [width, height]);
+
+    gl.uniformMatrix3fv(uViewMatrix, false, viewMatrix);
+    gl.uniformMatrix3fv(uModelMatrix, false, modelMatrix);
+    gl.uniform2f(uViewport, this.viewport.width, this.viewport.height);
+
+    // Parse color
+    const rgba = this.parseColor(color);
+    gl.uniform4fv(uColor, rgba);
+
+    // Draw ellipse
+    gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+
+    gl.bindVertexArray(null);
+  }
+
+  /**
    * Render selection outline.
    */
   renderSelection(
@@ -295,6 +357,33 @@ export class WebGLRenderer {
 
   private createSelectionVAO(): WebGLVertexArrayObject {
     return this.createRectangleVAO(); // Same geometry as rectangle
+  }
+
+  private createEllipseVAO(): WebGLVertexArrayObject {
+    const { gl } = this;
+    const vao = gl.createVertexArray();
+    if (!vao) throw new Error('Failed to create VAO');
+
+    gl.bindVertexArray(vao);
+
+    // Ellipse vertices (0,0 to 1,1 - scaled by model matrix)
+    // Will use fragment shader to render ellipse shape
+    const vertices = new Float32Array([
+      0, 0,
+      1, 0,
+      0, 1,
+      1, 1,
+    ]);
+
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+
+    gl.bindVertexArray(null);
+    return vao;
   }
 
   private parseColor(color: string): Float32Array {
@@ -389,5 +478,54 @@ export class WebGLRenderer {
     this.vertexArrays.forEach((vao) => this.gl.deleteVertexArray(vao));
     this.programs.clear();
     this.vertexArrays.clear();
+  }
+
+  private getEllipseVertexShader(): string {
+    return `#version 300 es
+      precision highp float;
+
+      layout(location = 0) in vec2 a_position;
+
+      uniform mat3 u_viewMatrix;
+      uniform mat3 u_modelMatrix;
+      uniform vec2 u_viewport;
+
+      out vec2 v_texCoord;
+
+      void main() {
+        vec3 pos = u_viewMatrix * u_modelMatrix * vec3(a_position, 1.0);
+
+        // Convert to clip space
+        vec2 clipSpace = (pos.xy / u_viewport) * 2.0 - 1.0;
+        clipSpace.y = -clipSpace.y; // Flip Y for screen coordinates
+
+        gl_Position = vec4(clipSpace, 0.0, 1.0);
+        v_texCoord = a_position; // Pass through for ellipse calc
+      }
+    `;
+  }
+
+  private getEllipseFragmentShader(): string {
+    return `#version 300 es
+      precision highp float;
+
+      in vec2 v_texCoord;
+      uniform vec4 u_color;
+
+      out vec4 fragColor;
+
+      void main() {
+        // Calculate ellipse using distance from center
+        vec2 center = vec2(0.5, 0.5);
+        vec2 delta = (v_texCoord - center) * 2.0; // Normalize to -1..1
+        
+        float dist = length(delta);
+        
+        // Antialiased edge
+        float alpha = smoothstep(1.0, 0.98, dist);
+        
+        fragColor = vec4(u_color.rgb, u_color.a * alpha);
+      }
+    `;
   }
 }
