@@ -324,7 +324,7 @@ export class WebGLRenderer {
     gl.uniformMatrix3fv(uViewMatrix, false, viewMatrix);
     gl.uniformMatrix3fv(uModelMatrix, false, modelMatrix);
     gl.uniform2f(uViewport, this.viewport.width, this.viewport.height);
-    gl.uniform4fv(uColor, [0.2, 0.5, 1.0, 1.0]); // Blue selection
+    gl.uniform4fv(uColor, [0.051, 0.6, 1.0, 1.0]); // Figma blue #0D99FF
 
     // Draw outline
     gl.drawArrays(gl.LINE_LOOP, 0, 4);
@@ -394,7 +394,7 @@ export class WebGLRenderer {
     });
 
     // Draw handle outlines
-    gl.uniform4fv(uColor, [0.2, 0.5, 1.0, 1.0]); // Blue outline
+    gl.uniform4fv(uColor, [0.051, 0.6, 1.0, 1.0]); // Figma blue #0D99FF outline
     handles.forEach(handle => {
       const modelMatrix = mat3.create();
       mat3.translate(modelMatrix, modelMatrix, [handle.x, handle.y]);
@@ -673,7 +673,29 @@ export class WebGLRenderer {
   }
 
   /**
-   * Render margin visualization
+   * Render vertical hatching lines within a rectangle
+   */
+  private renderHatchingPattern(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    color: string,
+    spacing: number,
+    viewMatrix: mat3,
+    zoom: number
+  ): void {
+    const lineSpacing = spacing / zoom;
+    const lineWidth = 1;
+
+    // Draw vertical lines
+    for (let lineX = x; lineX <= x + width; lineX += lineSpacing) {
+      this.renderLine(lineX, y, lineX, y + height, color, lineWidth, viewMatrix);
+    }
+  }
+
+  /**
+   * Render margin visualization with hatching pattern (Figma-style)
    */
   renderMargin(
     bounds: { x: number; y: number; width: number; height: number },
@@ -681,69 +703,56 @@ export class WebGLRenderer {
     viewMatrix: mat3,
     zoom: number
   ): void {
-    const color = 'rgba(255, 200, 100, 0.2)';
-    const borderColor = 'rgba(255, 150, 50, 0.5)';
+    const bgColor = 'rgba(255, 200, 100, 0.15)';
+    const hatchingColor = 'rgba(255, 150, 50, 0.4)';
+    const borderColor = 'rgba(255, 150, 50, 0.6)';
+    const hatchingSpacing = 8;
 
     // Top margin
     if (margin.t > 0) {
-      this.renderRectangle(
-        bounds.x,
-        bounds.y - margin.t,
-        bounds.width,
-        margin.t,
-        color,
-        viewMatrix
-      );
-      this.renderDashedLine(
-        bounds.x,
-        bounds.y - margin.t,
-        bounds.x + bounds.width,
-        bounds.y - margin.t,
-        borderColor,
-        1,
-        viewMatrix
-      );
+      this.renderRectangle(bounds.x, bounds.y - margin.t, bounds.width, margin.t, bgColor, viewMatrix);
+      this.renderHatchingPattern(bounds.x, bounds.y - margin.t, bounds.width, margin.t, hatchingColor, hatchingSpacing, viewMatrix, zoom);
+      // Border
+      this.renderLine(bounds.x, bounds.y - margin.t, bounds.x + bounds.width, bounds.y - margin.t, borderColor, 1, viewMatrix);
+      this.renderLine(bounds.x, bounds.y, bounds.x + bounds.width, bounds.y, borderColor, 1, viewMatrix);
+      this.renderLine(bounds.x, bounds.y - margin.t, bounds.x, bounds.y, borderColor, 1, viewMatrix);
+      this.renderLine(bounds.x + bounds.width, bounds.y - margin.t, bounds.x + bounds.width, bounds.y, borderColor, 1, viewMatrix);
     }
 
     // Right margin
     if (margin.r > 0) {
-      this.renderRectangle(
-        bounds.x + bounds.width,
-        bounds.y,
-        margin.r,
-        bounds.height,
-        color,
-        viewMatrix
-      );
+      this.renderRectangle(bounds.x + bounds.width, bounds.y, margin.r, bounds.height, bgColor, viewMatrix);
+      this.renderHatchingPattern(bounds.x + bounds.width, bounds.y, margin.r, bounds.height, hatchingColor, hatchingSpacing, viewMatrix, zoom);
+      // Border
+      this.renderLine(bounds.x + bounds.width, bounds.y, bounds.x + bounds.width + margin.r, bounds.y, borderColor, 1, viewMatrix);
+      this.renderLine(bounds.x + bounds.width, bounds.y + bounds.height, bounds.x + bounds.width + margin.r, bounds.y + bounds.height, borderColor, 1, viewMatrix);
+      this.renderLine(bounds.x + bounds.width + margin.r, bounds.y, bounds.x + bounds.width + margin.r, bounds.y + bounds.height, borderColor, 1, viewMatrix);
     }
 
     // Bottom margin
     if (margin.b > 0) {
-      this.renderRectangle(
-        bounds.x,
-        bounds.y + bounds.height,
-        bounds.width,
-        margin.b,
-        color,
-        viewMatrix
-      );
+      this.renderRectangle(bounds.x, bounds.y + bounds.height, bounds.width, margin.b, bgColor, viewMatrix);
+      this.renderHatchingPattern(bounds.x, bounds.y + bounds.height, bounds.width, margin.b, hatchingColor, hatchingSpacing, viewMatrix, zoom);
+      // Border
+      this.renderLine(bounds.x, bounds.y + bounds.height, bounds.x + bounds.width, bounds.y + bounds.height, borderColor, 1, viewMatrix);
+      this.renderLine(bounds.x, bounds.y + bounds.height + margin.b, bounds.x + bounds.width, bounds.y + bounds.height + margin.b, borderColor, 1, viewMatrix);
+      this.renderLine(bounds.x, bounds.y + bounds.height, bounds.x, bounds.y + bounds.height + margin.b, borderColor, 1, viewMatrix);
+      this.renderLine(bounds.x + bounds.width, bounds.y + bounds.height, bounds.x + bounds.width, bounds.y + bounds.height + margin.b, borderColor, 1, viewMatrix);
     }
 
     // Left margin
     if (margin.l > 0) {
-      this.renderRectangle(
-        bounds.x - margin.l,
-        bounds.y,
-        margin.l,
-        bounds.height,
-        color,
-        viewMatrix
-      );
+      this.renderRectangle(bounds.x - margin.l, bounds.y, margin.l, bounds.height, bgColor, viewMatrix);
+      this.renderHatchingPattern(bounds.x - margin.l, bounds.y, margin.l, bounds.height, hatchingColor, hatchingSpacing, viewMatrix, zoom);
+      // Border
+      this.renderLine(bounds.x - margin.l, bounds.y, bounds.x, bounds.y, borderColor, 1, viewMatrix);
+      this.renderLine(bounds.x - margin.l, bounds.y + bounds.height, bounds.x, bounds.y + bounds.height, borderColor, 1, viewMatrix);
+      this.renderLine(bounds.x - margin.l, bounds.y, bounds.x - margin.l, bounds.y + bounds.height, borderColor, 1, viewMatrix);
     }
   }
 
   /**
-   * Render padding visualization
+   * Render padding visualization with hatching pattern (Figma-style)
    */
   renderPadding(
     bounds: { x: number; y: number; width: number; height: number },
@@ -751,40 +760,53 @@ export class WebGLRenderer {
     viewMatrix: mat3,
     zoom: number
   ): void {
-    const color = 'rgba(100, 200, 255, 0.2)';
+    const bgColor = 'rgba(100, 200, 255, 0.15)';
+    const hatchingColor = 'rgba(50, 150, 255, 0.4)';
+    const borderColor = 'rgba(50, 150, 255, 0.6)';
+    const hatchingSpacing = 8;
 
     // Top padding
     if (padding.t > 0) {
-      this.renderRectangle(bounds.x, bounds.y, bounds.width, padding.t, color, viewMatrix);
+      this.renderRectangle(bounds.x, bounds.y, bounds.width, padding.t, bgColor, viewMatrix);
+      this.renderHatchingPattern(bounds.x, bounds.y, bounds.width, padding.t, hatchingColor, hatchingSpacing, viewMatrix, zoom);
+      // Border
+      this.renderLine(bounds.x, bounds.y, bounds.x + bounds.width, bounds.y, borderColor, 1, viewMatrix);
+      this.renderLine(bounds.x, bounds.y + padding.t, bounds.x + bounds.width, bounds.y + padding.t, borderColor, 1, viewMatrix);
+      this.renderLine(bounds.x, bounds.y, bounds.x, bounds.y + padding.t, borderColor, 1, viewMatrix);
+      this.renderLine(bounds.x + bounds.width, bounds.y, bounds.x + bounds.width, bounds.y + padding.t, borderColor, 1, viewMatrix);
     }
 
     // Right padding
     if (padding.r > 0) {
-      this.renderRectangle(
-        bounds.x + bounds.width - padding.r,
-        bounds.y,
-        padding.r,
-        bounds.height,
-        color,
-        viewMatrix
-      );
+      this.renderRectangle(bounds.x + bounds.width - padding.r, bounds.y, padding.r, bounds.height, bgColor, viewMatrix);
+      this.renderHatchingPattern(bounds.x + bounds.width - padding.r, bounds.y, padding.r, bounds.height, hatchingColor, hatchingSpacing, viewMatrix, zoom);
+      // Border
+      this.renderLine(bounds.x + bounds.width - padding.r, bounds.y, bounds.x + bounds.width - padding.r, bounds.y + bounds.height, borderColor, 1, viewMatrix);
+      this.renderLine(bounds.x + bounds.width, bounds.y, bounds.x + bounds.width, bounds.y + bounds.height, borderColor, 1, viewMatrix);
+      this.renderLine(bounds.x + bounds.width - padding.r, bounds.y, bounds.x + bounds.width, bounds.y, borderColor, 1, viewMatrix);
+      this.renderLine(bounds.x + bounds.width - padding.r, bounds.y + bounds.height, bounds.x + bounds.width, bounds.y + bounds.height, borderColor, 1, viewMatrix);
     }
 
     // Bottom padding
     if (padding.b > 0) {
-      this.renderRectangle(
-        bounds.x,
-        bounds.y + bounds.height - padding.b,
-        bounds.width,
-        padding.b,
-        color,
-        viewMatrix
-      );
+      this.renderRectangle(bounds.x, bounds.y + bounds.height - padding.b, bounds.width, padding.b, bgColor, viewMatrix);
+      this.renderHatchingPattern(bounds.x, bounds.y + bounds.height - padding.b, bounds.width, padding.b, hatchingColor, hatchingSpacing, viewMatrix, zoom);
+      // Border
+      this.renderLine(bounds.x, bounds.y + bounds.height - padding.b, bounds.x + bounds.width, bounds.y + bounds.height - padding.b, borderColor, 1, viewMatrix);
+      this.renderLine(bounds.x, bounds.y + bounds.height, bounds.x + bounds.width, bounds.y + bounds.height, borderColor, 1, viewMatrix);
+      this.renderLine(bounds.x, bounds.y + bounds.height - padding.b, bounds.x, bounds.y + bounds.height, borderColor, 1, viewMatrix);
+      this.renderLine(bounds.x + bounds.width, bounds.y + bounds.height - padding.b, bounds.x + bounds.width, bounds.y + bounds.height, borderColor, 1, viewMatrix);
     }
 
     // Left padding
     if (padding.l > 0) {
-      this.renderRectangle(bounds.x, bounds.y, padding.l, bounds.height, color, viewMatrix);
+      this.renderRectangle(bounds.x, bounds.y, padding.l, bounds.height, bgColor, viewMatrix);
+      this.renderHatchingPattern(bounds.x, bounds.y, padding.l, bounds.height, hatchingColor, hatchingSpacing, viewMatrix, zoom);
+      // Border
+      this.renderLine(bounds.x, bounds.y, bounds.x, bounds.y + bounds.height, borderColor, 1, viewMatrix);
+      this.renderLine(bounds.x + padding.l, bounds.y, bounds.x + padding.l, bounds.y + bounds.height, borderColor, 1, viewMatrix);
+      this.renderLine(bounds.x, bounds.y, bounds.x + padding.l, bounds.y, borderColor, 1, viewMatrix);
+      this.renderLine(bounds.x, bounds.y + bounds.height, bounds.x + padding.l, bounds.y + bounds.height, borderColor, 1, viewMatrix);
     }
   }
 

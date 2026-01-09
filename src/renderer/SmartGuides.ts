@@ -300,7 +300,10 @@ export function calculateDistanceMeasurements(
   const centerY = bounds.y + bounds.height / 2;
   const centerX = bounds.x + bounds.width / 2;
 
-  if (nearestLeft && nearestLeft.distance < 200) {
+  // Increased distance threshold for better visibility when selecting objects
+  const maxDistance = 500;
+
+  if (nearestLeft && nearestLeft.distance < maxDistance) {
     measurements.push({
       from: { x: bounds.x, y: centerY },
       to: { x: nearestLeft.node.bounds.x + nearestLeft.node.bounds.width, y: centerY },
@@ -310,7 +313,7 @@ export function calculateDistanceMeasurements(
     });
   }
 
-  if (nearestRight && nearestRight.distance < 200) {
+  if (nearestRight && nearestRight.distance < maxDistance) {
     measurements.push({
       from: { x: bounds.x + bounds.width, y: centerY },
       to: { x: nearestRight.node.bounds.x, y: centerY },
@@ -320,7 +323,7 @@ export function calculateDistanceMeasurements(
     });
   }
 
-  if (nearestTop && nearestTop.distance < 200) {
+  if (nearestTop && nearestTop.distance < maxDistance) {
     measurements.push({
       from: { x: centerX, y: bounds.y },
       to: { x: centerX, y: nearestTop.node.bounds.y + nearestTop.node.bounds.height },
@@ -330,7 +333,7 @@ export function calculateDistanceMeasurements(
     });
   }
 
-  if (nearestBottom && nearestBottom.distance < 200) {
+  if (nearestBottom && nearestBottom.distance < maxDistance) {
     measurements.push({
       from: { x: centerX, y: bounds.y + bounds.height },
       to: { x: centerX, y: nearestBottom.node.bounds.y },

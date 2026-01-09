@@ -357,11 +357,12 @@ export class RenderEngine {
       }
     });
 
-    // Layer 3: Figma-style Smart Guides (only during drag/resize)
+    // Layer 3: Figma-style Smart Guides
+    // During drag/resize: show alignment and spacing guides
     if ((appState.isDragging || appState.isResizing) && appState.draggedNodes.size > 0 && this.scene) {
       const draggedId = Array.from(appState.draggedNodes)[0];
       const draggedNode = findNode(this.scene, draggedId);
-      
+
       if (draggedNode) {
         // Alignment guides (magenta lines when edges/centers align)
         const alignmentGuides = calculateAlignmentGuides(draggedNode, nodes);
@@ -377,6 +378,20 @@ export class RenderEngine {
 
         // Distance measurements (to nearest objects)
         const measurements = calculateDistanceMeasurements(draggedNode, nodes);
+        measurements.forEach(measurement => {
+          renderer.renderDistanceMeasurement(measurement, camera.viewMatrix, camera.zoom);
+        });
+      }
+    }
+
+    // When object is selected (not dragging): show distance from all sides
+    if (this.selectedNodes.size === 1 && !appState.isDragging && !appState.isResizing && this.scene) {
+      const selectedId = Array.from(this.selectedNodes)[0];
+      const selectedNode = findNode(this.scene, selectedId);
+
+      if (selectedNode) {
+        // Calculate and render distance measurements from all sides
+        const measurements = calculateDistanceMeasurements(selectedNode, nodes);
         measurements.forEach(measurement => {
           renderer.renderDistanceMeasurement(measurement, camera.viewMatrix, camera.zoom);
         });

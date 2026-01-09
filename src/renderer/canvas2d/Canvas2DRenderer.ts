@@ -105,7 +105,7 @@ export class Canvas2DRenderer {
   }
 
   /**
-   * Render selection outline.
+   * Render selection outline (Figma-style).
    */
   renderSelection(
     x: number,
@@ -114,15 +114,15 @@ export class Canvas2DRenderer {
     height: number
   ): void {
     const { ctx } = this;
-    
-    ctx.strokeStyle = '#3b82f6';
+
+    ctx.strokeStyle = '#0D99FF'; // Figma blue
     ctx.lineWidth = 2;
     ctx.setLineDash([]);
     ctx.strokeRect(x, y, width, height);
   }
 
   /**
-   * Render resize handles on all corners and edges.
+   * Render resize handles on all corners and edges (Figma-style rounded).
    */
   renderResizeHandles(
     x: number,
@@ -135,6 +135,7 @@ export class Canvas2DRenderer {
 
     // Handle size in screen space (consistent regardless of zoom)
     const handleSize = 8 / zoom;
+    const borderRadius = 2 / zoom; // Rounded corners
 
     // Define handle positions (corners and mid-points)
     const handles = [
@@ -151,22 +152,18 @@ export class Canvas2DRenderer {
     ];
 
     ctx.fillStyle = '#ffffff';
-    ctx.strokeStyle = '#3b82f6';
+    ctx.strokeStyle = '#0D99FF'; // Figma blue
     ctx.lineWidth = 1.5 / zoom;
 
     handles.forEach(handle => {
-      ctx.fillRect(
-        handle.x - handleSize / 2,
-        handle.y - handleSize / 2,
-        handleSize,
-        handleSize
-      );
-      ctx.strokeRect(
-        handle.x - handleSize / 2,
-        handle.y - handleSize / 2,
-        handleSize,
-        handleSize
-      );
+      const hx = handle.x - handleSize / 2;
+      const hy = handle.y - handleSize / 2;
+
+      // Draw rounded rectangle handle
+      ctx.beginPath();
+      ctx.roundRect(hx, hy, handleSize, handleSize, borderRadius);
+      ctx.fill();
+      ctx.stroke();
     });
   }
 
@@ -322,7 +319,42 @@ export class Canvas2DRenderer {
   }
 
   /**
-   * Render margin visualization with pattern fill
+   * Render vertical hatching lines within a rectangle
+   */
+  private renderHatching(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    color: string,
+    spacing: number,
+    zoom: number
+  ): void {
+    const { ctx } = this;
+    const lineSpacing = spacing / zoom;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(x, y, width, height);
+    ctx.clip();
+
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 1 / zoom;
+    ctx.setLineDash([]);
+
+    // Draw vertical lines
+    for (let lineX = x; lineX <= x + width; lineX += lineSpacing) {
+      ctx.beginPath();
+      ctx.moveTo(lineX, y);
+      ctx.lineTo(lineX, y + height);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  /**
+   * Render margin visualization with hatching pattern (Figma-style)
    */
   renderMargin(
     bounds: { x: number; y: number; width: number; height: number },
@@ -330,66 +362,82 @@ export class Canvas2DRenderer {
     zoom: number
   ): void {
     const { ctx } = this;
+    const hatchingColor = 'rgba(255, 150, 50, 0.4)';
+    const hatchingSpacing = 8;
 
     ctx.save();
-    ctx.fillStyle = 'rgba(255, 200, 100, 0.2)';
-    ctx.strokeStyle = 'rgba(255, 150, 50, 0.5)';
+    ctx.fillStyle = 'rgba(255, 200, 100, 0.15)';
+    ctx.strokeStyle = 'rgba(255, 150, 50, 0.6)';
     ctx.lineWidth = 1 / zoom;
-    ctx.setLineDash([3 / zoom, 3 / zoom]);
 
     // Top margin
     if (margin.t > 0) {
       ctx.fillRect(bounds.x, bounds.y - margin.t, bounds.width, margin.t);
+      this.renderHatching(bounds.x, bounds.y - margin.t, bounds.width, margin.t, hatchingColor, hatchingSpacing, zoom);
+      ctx.setLineDash([]);
       ctx.strokeRect(bounds.x, bounds.y - margin.t, bounds.width, margin.t);
-      
+
       // Label
       ctx.fillStyle = '#ff6600';
-      ctx.font = `${10 / zoom}px Arial`;
+      ctx.font = `bold ${10 / zoom}px Arial`;
       ctx.textAlign = 'center';
-      ctx.fillText(`M:${margin.t}`, bounds.x + bounds.width / 2, bounds.y - margin.t / 2);
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${margin.t}`, bounds.x + bounds.width / 2, bounds.y - margin.t / 2);
     }
 
     // Right margin
     if (margin.r > 0) {
-      ctx.fillStyle = 'rgba(255, 200, 100, 0.2)';
+      ctx.fillStyle = 'rgba(255, 200, 100, 0.15)';
       ctx.fillRect(bounds.x + bounds.width, bounds.y, margin.r, bounds.height);
+      this.renderHatching(bounds.x + bounds.width, bounds.y, margin.r, bounds.height, hatchingColor, hatchingSpacing, zoom);
+      ctx.setLineDash([]);
+      ctx.strokeStyle = 'rgba(255, 150, 50, 0.6)';
       ctx.strokeRect(bounds.x + bounds.width, bounds.y, margin.r, bounds.height);
-      
+
       // Label
       ctx.fillStyle = '#ff6600';
       ctx.textAlign = 'center';
-      ctx.fillText(`M:${margin.r}`, bounds.x + bounds.width + margin.r / 2, bounds.y + bounds.height / 2);
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${margin.r}`, bounds.x + bounds.width + margin.r / 2, bounds.y + bounds.height / 2);
     }
 
     // Bottom margin
     if (margin.b > 0) {
-      ctx.fillStyle = 'rgba(255, 200, 100, 0.2)';
+      ctx.fillStyle = 'rgba(255, 200, 100, 0.15)';
       ctx.fillRect(bounds.x, bounds.y + bounds.height, bounds.width, margin.b);
+      this.renderHatching(bounds.x, bounds.y + bounds.height, bounds.width, margin.b, hatchingColor, hatchingSpacing, zoom);
+      ctx.setLineDash([]);
+      ctx.strokeStyle = 'rgba(255, 150, 50, 0.6)';
       ctx.strokeRect(bounds.x, bounds.y + bounds.height, bounds.width, margin.b);
-      
+
       // Label
       ctx.fillStyle = '#ff6600';
       ctx.textAlign = 'center';
-      ctx.fillText(`M:${margin.b}`, bounds.x + bounds.width / 2, bounds.y + bounds.height + margin.b / 2);
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${margin.b}`, bounds.x + bounds.width / 2, bounds.y + bounds.height + margin.b / 2);
     }
 
     // Left margin
     if (margin.l > 0) {
-      ctx.fillStyle = 'rgba(255, 200, 100, 0.2)';
+      ctx.fillStyle = 'rgba(255, 200, 100, 0.15)';
       ctx.fillRect(bounds.x - margin.l, bounds.y, margin.l, bounds.height);
+      this.renderHatching(bounds.x - margin.l, bounds.y, margin.l, bounds.height, hatchingColor, hatchingSpacing, zoom);
+      ctx.setLineDash([]);
+      ctx.strokeStyle = 'rgba(255, 150, 50, 0.6)';
       ctx.strokeRect(bounds.x - margin.l, bounds.y, margin.l, bounds.height);
-      
+
       // Label
       ctx.fillStyle = '#ff6600';
       ctx.textAlign = 'center';
-      ctx.fillText(`M:${margin.l}`, bounds.x - margin.l / 2, bounds.y + bounds.height / 2);
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${margin.l}`, bounds.x - margin.l / 2, bounds.y + bounds.height / 2);
     }
 
     ctx.restore();
   }
 
   /**
-   * Render padding visualization with pattern fill
+   * Render padding visualization with hatching pattern (Figma-style)
    */
   renderPadding(
     bounds: { x: number; y: number; width: number; height: number },
@@ -397,59 +445,75 @@ export class Canvas2DRenderer {
     zoom: number
   ): void {
     const { ctx } = this;
+    const hatchingColor = 'rgba(50, 150, 255, 0.4)';
+    const hatchingSpacing = 8;
 
     ctx.save();
-    ctx.fillStyle = 'rgba(100, 200, 255, 0.2)';
-    ctx.strokeStyle = 'rgba(50, 150, 255, 0.5)';
+    ctx.fillStyle = 'rgba(100, 200, 255, 0.15)';
+    ctx.strokeStyle = 'rgba(50, 150, 255, 0.6)';
     ctx.lineWidth = 1 / zoom;
-    ctx.setLineDash([3 / zoom, 3 / zoom]);
 
     // Top padding
     if (padding.t > 0) {
       ctx.fillRect(bounds.x, bounds.y, bounds.width, padding.t);
+      this.renderHatching(bounds.x, bounds.y, bounds.width, padding.t, hatchingColor, hatchingSpacing, zoom);
+      ctx.setLineDash([]);
       ctx.strokeRect(bounds.x, bounds.y, bounds.width, padding.t);
-      
+
       // Label
       ctx.fillStyle = '#0066ff';
-      ctx.font = `${10 / zoom}px Arial`;
+      ctx.font = `bold ${10 / zoom}px Arial`;
       ctx.textAlign = 'center';
-      ctx.fillText(`P:${padding.t}`, bounds.x + bounds.width / 2, bounds.y + padding.t / 2);
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${padding.t}`, bounds.x + bounds.width / 2, bounds.y + padding.t / 2);
     }
 
     // Right padding
     if (padding.r > 0) {
-      ctx.fillStyle = 'rgba(100, 200, 255, 0.2)';
+      ctx.fillStyle = 'rgba(100, 200, 255, 0.15)';
       ctx.fillRect(bounds.x + bounds.width - padding.r, bounds.y, padding.r, bounds.height);
+      this.renderHatching(bounds.x + bounds.width - padding.r, bounds.y, padding.r, bounds.height, hatchingColor, hatchingSpacing, zoom);
+      ctx.setLineDash([]);
+      ctx.strokeStyle = 'rgba(50, 150, 255, 0.6)';
       ctx.strokeRect(bounds.x + bounds.width - padding.r, bounds.y, padding.r, bounds.height);
-      
+
       // Label
       ctx.fillStyle = '#0066ff';
       ctx.textAlign = 'center';
-      ctx.fillText(`P:${padding.r}`, bounds.x + bounds.width - padding.r / 2, bounds.y + bounds.height / 2);
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${padding.r}`, bounds.x + bounds.width - padding.r / 2, bounds.y + bounds.height / 2);
     }
 
     // Bottom padding
     if (padding.b > 0) {
-      ctx.fillStyle = 'rgba(100, 200, 255, 0.2)';
+      ctx.fillStyle = 'rgba(100, 200, 255, 0.15)';
       ctx.fillRect(bounds.x, bounds.y + bounds.height - padding.b, bounds.width, padding.b);
+      this.renderHatching(bounds.x, bounds.y + bounds.height - padding.b, bounds.width, padding.b, hatchingColor, hatchingSpacing, zoom);
+      ctx.setLineDash([]);
+      ctx.strokeStyle = 'rgba(50, 150, 255, 0.6)';
       ctx.strokeRect(bounds.x, bounds.y + bounds.height - padding.b, bounds.width, padding.b);
-      
+
       // Label
       ctx.fillStyle = '#0066ff';
       ctx.textAlign = 'center';
-      ctx.fillText(`P:${padding.b}`, bounds.x + bounds.width / 2, bounds.y + bounds.height - padding.b / 2);
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${padding.b}`, bounds.x + bounds.width / 2, bounds.y + bounds.height - padding.b / 2);
     }
 
     // Left padding
     if (padding.l > 0) {
-      ctx.fillStyle = 'rgba(100, 200, 255, 0.2)';
+      ctx.fillStyle = 'rgba(100, 200, 255, 0.15)';
       ctx.fillRect(bounds.x, bounds.y, padding.l, bounds.height);
+      this.renderHatching(bounds.x, bounds.y, padding.l, bounds.height, hatchingColor, hatchingSpacing, zoom);
+      ctx.setLineDash([]);
+      ctx.strokeStyle = 'rgba(50, 150, 255, 0.6)';
       ctx.strokeRect(bounds.x, bounds.y, padding.l, bounds.height);
-      
+
       // Label
       ctx.fillStyle = '#0066ff';
       ctx.textAlign = 'center';
-      ctx.fillText(`P:${padding.l}`, bounds.x + padding.l / 2, bounds.y + bounds.height / 2);
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${padding.l}`, bounds.x + padding.l / 2, bounds.y + bounds.height / 2);
     }
 
     ctx.restore();
