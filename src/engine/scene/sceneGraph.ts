@@ -290,6 +290,38 @@ export function findNode(root: SceneNode, nodeId: NodeId): SceneNode | null {
 }
 
 /**
+ * Find the parent node (Frame) that contains this node.
+ * Returns null if the node has no parent frame.
+ * 
+ * @param root - The scene root to search from
+ * @param nodeId - The ID of the node whose parent frame to find
+ * @returns The parent FrameNode if found, null otherwise
+ */
+export function findParentFrame(root: SceneNode, nodeId: NodeId): SceneNode | null {
+  // Helper function to search recursively
+  const searchParent = (node: SceneNode, targetId: NodeId): SceneNode | null => {
+    if (node.children) {
+      for (const child of node.children) {
+        if (child.id === targetId) {
+          // Found the target as a direct child - return current node as parent
+          // Only return if it's a FRAME type
+          if (node.type === NodeType.Frame) {
+            return node;
+          }
+          return null;
+        }
+        // Recursively search in children
+        const found = searchParent(child, targetId);
+        if (found) return found;
+      }
+    }
+    return null;
+  };
+
+  return searchParent(root, nodeId);
+}
+
+/**
  * Add a child node to a parent.
  */
 export function addChild(

@@ -3,9 +3,9 @@
  * When moving frames, all children move with the frame.
  */
 
-import type { PointerState, Point, ToolType, Bounds } from '../types';
+import type { PointerState, Point, ToolType, Bounds, SceneNode } from '../types';
 import type { Tool, ToolContext } from './Tool';
-import { getNodesAtPoint, updateNode, findNode } from '../engine/scene/sceneGraph';
+import { getNodesAtPoint, updateNode, findNode, findParentFrame } from '../engine/scene/sceneGraph';
 import { useAppStore } from '../state/store';
 
 type ResizeHandle = 
@@ -113,7 +113,9 @@ export class SelectTool implements Tool {
 
       let updatedScene = scene;
       this.draggedNodeIds.forEach((nodeId) => {
-        updatedScene = updateNode(updatedScene, nodeId, { bounds: newBounds });
+        // Constrain resize within parent frame
+        const constrainedBounds = this.constrainBoundsToParent(scene, nodeId, newBounds);
+        updatedScene = updateNode(updatedScene, nodeId, { bounds: constrainedBounds });
       });
 
       this.context.updateScene(updatedScene);
@@ -263,23 +265,125 @@ export class SelectTool implements Tool {
   }
 
   /**
+   * Constrain bounds to stay within parent frame.
+   * Returns the original bounds if no parent frame exists.
+   * 
+   * @param scene - The scene root to search for parent frame
+   * @param nodeId - The ID of the node to constrain
+   * @param bounds - The desired bounds to constrain
+   * @returns Constrained bounds that fit within parent frame
+   */
+  private constrainBoundsToParent(
+    scene: SceneNode,
+    nodeId: string,
+    bounds: Bounds
+  ): Bounds {
+    const parentFrame = findParentFrame(scene, nodeId);
+    
+    if (!parentFrame) {
+      return bounds;
+    }
+
+    const parentBounds = parentFrame.bounds;
+    const constrainedBounds = { ...bounds };
+
+    // First, constrain size to fit within parent frame if needed
+    if (constrainedBounds.width > parentBounds.width) {
+      constrainedBounds.width = parentBounds.width;
+    }
+    if (constrainedBounds.height > parentBounds.height) {
+      constrainedBounds.height = parentBounds.height;
+    }
+
+    // Then, constrain position to keep shape completely within parent frame
+    // Left constraint
+    if (constrainedBounds.x < parentBounds.x) {
+      constrainedBounds.x = parentBounds.x;
+    }
+    // Right constraint
+    if (constrainedBounds.x + constrainedBounds.width > parentBounds.x + parentBounds.width) {
+      constrainedBounds.x = parentBounds.x + parentBounds.width - constrainedBounds.width;
+    }
+    // Top constraint
+    if (constrainedBounds.y < parentBounds.y) {
+      constrainedBounds.y = parentBounds.y;
+    }
+    // Bottom constraint
+    if (constrainedBounds.y + constrainedBounds.height > parentBounds.y + parentBounds.height) {
+      constrainedBounds.y = parentBounds.y + parentBounds.height - constrainedBounds.height;
+    }
+
+    return constrainedBounds;
+  }
+
+  /**
    * Move a node and all its children.
    * When moving a frame, all child shapes move with it.
-   * Objects can now be dragged outside their parent frame.
+   * Shapes are constrained to stay within their parent frame bounds.
+   * 
+   * @param scene - The scene root
+   * @param nodeId - The ID of the node to move
+   * @param deltaX - Horizontal movement delta
+   * @param deltaY - Vertical movement delta
+   * @returns Updated scene with moved node and children
    */
   private moveNodeAndChildren(
-    scene: any,
+    scene: SceneNode,
     nodeId: string,
     deltaX: number,
     deltaY: number
-  ): any {
+  ): SceneNode {
     const currentNode = findNode(scene, nodeId);
     if (!currentNode) return scene;
 
-    // Update the node's position (no bounds checking - allow outside parent)
+    // Find parent frame to constrain movement
+    const parentFrame = findParentFrame(scene, nodeId);
+    
+    // Calculate new position
+    let newX = currentNode.bounds.x + deltaX;
+    let newY = currentNode.bounds.y + deltaY;
+
+    // If node has a parent frame, constrain movement within frame bounds
+    if (parentFrame) {
+      const parentBounds = parentFrame.bounds;
+      const nodeBounds = currentNode.bounds;
+
+      // Ensure node can fit within parent before constraining position
+      // If node is larger than parent, position at parent origin
+      const canFitHorizontally = nodeBounds.width <= parentBounds.width;
+      const canFitVertically = nodeBounds.height <= parentBounds.height;
+
+      if (!canFitHorizontally) {
+        newX = parentBounds.x;
+      } else {
+        // Left constraint
+        if (newX < parentBounds.x) {
+          newX = parentBounds.x;
+        }
+        // Right constraint
+        if (newX + nodeBounds.width > parentBounds.x + parentBounds.width) {
+          newX = parentBounds.x + parentBounds.width - nodeBounds.width;
+        }
+      }
+
+      if (!canFitVertically) {
+        newY = parentBounds.y;
+      } else {
+        // Top constraint
+        if (newY < parentBounds.y) {
+          newY = parentBounds.y;
+        }
+        // Bottom constraint
+        if (newY + nodeBounds.height > parentBounds.y + parentBounds.height) {
+          newY = parentBounds.y + parentBounds.height - nodeBounds.height;
+        }
+      }
+    }
+
+    // Update the node's position with constrained values
     const newBounds = {
-      x: currentNode.bounds.x + deltaX,
-      y: currentNode.bounds.y + deltaY,
+      x: newX,
+      y: newY,
       width: currentNode.bounds.width,
       height: currentNode.bounds.height,
     };
@@ -288,8 +392,12 @@ export class SelectTool implements Tool {
 
     // If this node has children (like a frame), move them too
     if (currentNode.children && currentNode.children.length > 0) {
-      currentNode.children.forEach((child: any) => {
-        updatedScene = this.moveNodeAndChildren(updatedScene, child.id, deltaX, deltaY);
+      // Calculate actual delta that was applied (may be different due to constraints)
+      const actualDeltaX = newX - currentNode.bounds.x;
+      const actualDeltaY = newY - currentNode.bounds.y;
+      
+      currentNode.children.forEach((child: SceneNode) => {
+        updatedScene = this.moveNodeAndChildren(updatedScene, child.id, actualDeltaX, actualDeltaY);
       });
     }
 
