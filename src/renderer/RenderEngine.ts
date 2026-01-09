@@ -316,6 +316,9 @@ export class RenderEngine {
     const renderer = this.renderer as WebGLRenderer;
     const camera = this.camera.getCamera();
     const appState = useAppStore.getState();
+    
+    // Pre-calculate visible node IDs for smart guide calculations
+    const visibleNodeIds = this.wasmInitialized ? nodes.map(n => n.id) : [];
 
     // Layer 0: Grid
     renderer.renderGrid(camera.viewMatrix, camera.zoom);
@@ -358,7 +361,6 @@ export class RenderEngine {
       if (draggedNode) {
         // Get all nodes from scene to find parent (not just visible nodes)
         const allNodes = collectAllNodes(this.scene);
-        const visibleNodeIds = nodes.map(n => n.id);
         
         // Alignment guides (magenta lines when edges/centers align) - use WASM
         const alignmentGuides = this.wasmAdapter.calculateAlignmentGuides(draggedId, visibleNodeIds);
@@ -412,7 +414,6 @@ export class RenderEngine {
       if (selectedNode) {
         // Get all nodes from scene to find parent (not just visible nodes)
         const allNodes = collectAllNodes(this.scene);
-        const visibleNodeIds = nodes.map(n => n.id);
         
         // Find parent/container bounds (smallest node that fully contains the selected node)
         const parentBounds = this.findParentBounds(selectedNode, allNodes);

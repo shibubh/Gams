@@ -161,6 +161,7 @@ impl DistanceMeasurement {
 // Internal Helper Structures
 // ============================================================================
 
+#[derive(Clone, Copy)]
 struct NodeBounds {
     min_x: f32,
     min_y: f32,
@@ -169,6 +170,15 @@ struct NodeBounds {
 }
 
 impl NodeBounds {
+    fn from_tuple(bounds: (f32, f32, f32, f32)) -> Self {
+        Self {
+            min_x: bounds.0,
+            min_y: bounds.1,
+            max_x: bounds.2,
+            max_y: bounds.3,
+        }
+    }
+
     fn left(&self) -> f32 {
         self.min_x
     }
@@ -234,12 +244,7 @@ pub fn calculate_alignment_guides(
 ) -> Vec<AlignmentGuide> {
     let mut guides = Vec::new();
     
-    let moving = NodeBounds {
-        min_x: moving_bounds.0,
-        min_y: moving_bounds.1,
-        max_x: moving_bounds.2,
-        max_y: moving_bounds.3,
-    };
+    let moving = NodeBounds::from_tuple(moving_bounds);
 
     let left = moving.left();
     let right = moving.right();
@@ -248,16 +253,12 @@ pub fn calculate_alignment_guides(
     let bottom = moving.bottom();
     let center_y = moving.center_y();
 
-    let mut vertical_alignments: HashMap<i32, (u8, usize)> = HashMap::new();
-    let mut horizontal_alignments: HashMap<i32, (u8, usize)> = HashMap::new();
+    // Use u32 as key (bit representation of f32) to handle HashMap deduplication
+    let mut vertical_alignments: HashMap<u32, (u8, usize)> = HashMap::new();
+    let mut horizontal_alignments: HashMap<u32, (u8, usize)> = HashMap::new();
 
     for bounds in all_bounds {
-        let node = NodeBounds {
-            min_x: bounds.0,
-            min_y: bounds.1,
-            max_x: bounds.2,
-            max_y: bounds.3,
-        };
+        let node = NodeBounds::from_tuple(*bounds);
 
         let n_left = node.left();
         let n_right = node.right();
@@ -285,7 +286,7 @@ pub fn calculate_alignment_guides(
     for (pos_key, (align_type, count)) in vertical_alignments {
         guides.push(AlignmentGuide {
             guide_type: 0, // vertical
-            position: f32::from_bits(pos_key as u32),
+            position: f32::from_bits(pos_key),
             alignment_type: align_type,
             node_count: count,
         });
@@ -295,7 +296,7 @@ pub fn calculate_alignment_guides(
     for (pos_key, (align_type, count)) in horizontal_alignments {
         guides.push(AlignmentGuide {
             guide_type: 1, // horizontal
-            position: f32::from_bits(pos_key as u32),
+            position: f32::from_bits(pos_key),
             alignment_type: align_type,
             node_count: count,
         });
@@ -305,14 +306,14 @@ pub fn calculate_alignment_guides(
 }
 
 fn check_alignment(
-    map: &mut HashMap<i32, (u8, usize)>,
+    map: &mut HashMap<u32, (u8, usize)>,
     pos1: f32,
     pos2: f32,
     threshold: f32,
     align_type: u8,
 ) {
     if (pos1 - pos2).abs() < threshold {
-        let key = pos1.to_bits() as i32;
+        let key = pos1.to_bits();
         map.entry(key)
             .and_modify(|(_, count)| *count += 1)
             .or_insert((align_type, 1));
@@ -327,74 +328,48 @@ pub fn calculate_spacing_guides(
 ) -> Vec<SpacingGuide> {
     let mut guides = Vec::new();
     
-    let moving = NodeBounds {
-        min_x: moving_bounds.0,
-        min_y: moving_bounds.1,
-        max_x: moving_bounds.2,
-        max_y: moving_bounds.3,
-    };
+    let moving = NodeBounds::from_tuple(moving_bounds);
 
-    // Find potential spacing matches
-    let mut horizontal_spacings: HashMap<i32, Vec<(NodeBounds, NodeBounds)>> = HashMap::new();
-    let mut vertical_spacings: HashMap<i32, Vec<(NodeBounds, NodeBounds)>> = HashMap::new();
+    // Find potential spacing matches (use u32 for bit representation)
+    let mut horizontal_spacings: HashMap<u32, Vec<(NodeBounds, NodeBounds)>> = HashMap::new();
+    let mut vertical_spacings: HashMap<u32, Vec<(NodeBounds, NodeBounds)>> = HashMap::new();
 
     // Calculate spacings between all pairs of nodes (excluding moving node)
     for i in 0..all_bounds.len() {
         for j in (i + 1)..all_bounds.len() {
-            let node1 = NodeBounds {
-                min_x: all_bounds[i].0,
-                min_y: all_bounds[i].1,
-                max_x: all_bounds[i].2,
-                max_y: all_bounds[i].3,
-            };
-            let node2 = NodeBounds {
-                min_x: all_bounds[j].0,
-                min_y: all_bounds[j].1,
-                max_x: all_bounds[j].2,
-                max_y: all_bounds[j].3,
-            };
+            let node1 = NodeBounds::from_tuple(all_bounds[i]);
+            let node2 = NodeBounds::from_tuple(all_bounds[j]);
 
             // Horizontal spacing (left-right)
             if node2.left() > node1.right() {
                 let spacing = node2.left() - node1.right();
-                let spacing_key = spacing.to_bits() as i32;
+                let spacing_key = spacing.to_bits();
                 horizontal_spacings
                     .entry(spacing_key)
                     .or_insert_with(Vec::new)
-                    .push((
-                        NodeBounds { min_x: node1.min_x, min_y: node1.min_y, max_x: node1.max_x, max_y: node1.max_y },
-                        NodeBounds { min_x: node2.min_x, min_y: node2.min_y, max_x: node2.max_x, max_y: node2.max_y },
-                    ));
+                    .push((node1, node2));
             }
 
             // Vertical spacing (top-bottom)
             if node2.top() > node1.bottom() {
                 let spacing = node2.top() - node1.bottom();
-                let spacing_key = spacing.to_bits() as i32;
+                let spacing_key = spacing.to_bits();
                 vertical_spacings
                     .entry(spacing_key)
                     .or_insert_with(Vec::new)
-                    .push((
-                        NodeBounds { min_x: node1.min_x, min_y: node1.min_y, max_x: node1.max_x, max_y: node1.max_y },
-                        NodeBounds { min_x: node2.min_x, min_y: node2.min_y, max_x: node2.max_x, max_y: node2.max_y },
-                    ));
+                    .push((node1, node2));
             }
         }
     }
 
     // Check if moving node creates equal spacing
     for bounds in all_bounds {
-        let node = NodeBounds {
-            min_x: bounds.0,
-            min_y: bounds.1,
-            max_x: bounds.2,
-            max_y: bounds.3,
-        };
+        let node = NodeBounds::from_tuple(*bounds);
 
         // Horizontal spacing
         if node.left() > moving.right() {
             let spacing = node.left() - moving.right();
-            let spacing_key = spacing.to_bits() as i32;
+            let spacing_key = spacing.to_bits();
             if let Some(matches) = horizontal_spacings.get(&spacing_key) {
                 if !matches.is_empty() {
                     guides.push(SpacingGuide {
@@ -413,7 +388,7 @@ pub fn calculate_spacing_guides(
             }
         } else if moving.left() > node.right() {
             let spacing = moving.left() - node.right();
-            let spacing_key = spacing.to_bits() as i32;
+            let spacing_key = spacing.to_bits();
             if let Some(matches) = horizontal_spacings.get(&spacing_key) {
                 if !matches.is_empty() {
                     guides.push(SpacingGuide {
@@ -435,7 +410,7 @@ pub fn calculate_spacing_guides(
         // Vertical spacing
         if node.top() > moving.bottom() {
             let spacing = node.top() - moving.bottom();
-            let spacing_key = spacing.to_bits() as i32;
+            let spacing_key = spacing.to_bits();
             if let Some(matches) = vertical_spacings.get(&spacing_key) {
                 if !matches.is_empty() {
                     guides.push(SpacingGuide {
@@ -454,7 +429,7 @@ pub fn calculate_spacing_guides(
             }
         } else if moving.top() > node.bottom() {
             let spacing = moving.top() - node.bottom();
-            let spacing_key = spacing.to_bits() as i32;
+            let spacing_key = spacing.to_bits();
             if let Some(matches) = vertical_spacings.get(&spacing_key) {
                 if !matches.is_empty() {
                     guides.push(SpacingGuide {
@@ -486,12 +461,7 @@ pub fn calculate_distance_measurements(
 ) -> Vec<DistanceMeasurement> {
     let mut measurements = Vec::new();
     
-    let moving = NodeBounds {
-        min_x: moving_bounds.0,
-        min_y: moving_bounds.1,
-        max_x: moving_bounds.2,
-        max_y: moving_bounds.3,
-    };
+    let moving = NodeBounds::from_tuple(moving_bounds);
 
     let mut nearest_left: Option<(NodeBounds, f32)> = None;
     let mut nearest_right: Option<(NodeBounds, f32)> = None;
@@ -500,12 +470,7 @@ pub fn calculate_distance_measurements(
 
     // Find nearest sibling objects on each side
     for bounds in all_bounds {
-        let node = NodeBounds {
-            min_x: bounds.0,
-            min_y: bounds.1,
-            max_x: bounds.2,
-            max_y: bounds.3,
-        };
+        let node = NodeBounds::from_tuple(*bounds);
 
         // Skip parent/container nodes (nodes that fully contain the moving node)
         if node.left() <= moving.left()
@@ -520,10 +485,7 @@ pub fn calculate_distance_measurements(
         if node.right() <= moving.left() {
             let distance = moving.left() - node.right();
             if nearest_left.is_none() || distance < nearest_left.as_ref().unwrap().1 {
-                nearest_left = Some((
-                    NodeBounds { min_x: node.min_x, min_y: node.min_y, max_x: node.max_x, max_y: node.max_y },
-                    distance,
-                ));
+                nearest_left = Some((node, distance));
             }
         }
 
@@ -531,10 +493,7 @@ pub fn calculate_distance_measurements(
         if node.left() >= moving.right() {
             let distance = node.left() - moving.right();
             if nearest_right.is_none() || distance < nearest_right.as_ref().unwrap().1 {
-                nearest_right = Some((
-                    NodeBounds { min_x: node.min_x, min_y: node.min_y, max_x: node.max_x, max_y: node.max_y },
-                    distance,
-                ));
+                nearest_right = Some((node, distance));
             }
         }
 
@@ -542,10 +501,7 @@ pub fn calculate_distance_measurements(
         if node.bottom() <= moving.top() {
             let distance = moving.top() - node.bottom();
             if nearest_top.is_none() || distance < nearest_top.as_ref().unwrap().1 {
-                nearest_top = Some((
-                    NodeBounds { min_x: node.min_x, min_y: node.min_y, max_x: node.max_x, max_y: node.max_y },
-                    distance,
-                ));
+                nearest_top = Some((node, distance));
             }
         }
 
@@ -553,10 +509,7 @@ pub fn calculate_distance_measurements(
         if node.top() >= moving.bottom() {
             let distance = node.top() - moving.bottom();
             if nearest_bottom.is_none() || distance < nearest_bottom.as_ref().unwrap().1 {
-                nearest_bottom = Some((
-                    NodeBounds { min_x: node.min_x, min_y: node.min_y, max_x: node.max_x, max_y: node.max_y },
-                    distance,
-                ));
+                nearest_bottom = Some((node, distance));
             }
         }
     }
