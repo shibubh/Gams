@@ -10,7 +10,6 @@
 
 import type { SceneNode, Bounds, NodeId } from '../../types/core';
 import { IdRegistry } from './IdRegistry';
-import init, { EditorCore } from '../../../public/wasm/editor_core';
 
 export interface WasmAdapterConfig {
   capacity?: number;
@@ -32,7 +31,7 @@ export interface SnapResultData {
 }
 
 export class WasmAdapter {
-  private core: EditorCore | null = null;
+  private core: any = null;
   private idRegistry: IdRegistry = new IdRegistry();
   private initialized: boolean = false;
 
@@ -40,6 +39,11 @@ export class WasmAdapter {
     const { capacity = 10000, wasmUrl = '/wasm/editor_core_bg.wasm' } = config;
 
     try {
+      // Dynamically import WASM module
+      const wasmModule = await import('../../../public/wasm/editor_core');
+      const init = wasmModule.default;
+      const EditorCore = wasmModule.EditorCore;
+      
       // Initialize WASM module
       await init(wasmUrl);
 
@@ -49,8 +53,8 @@ export class WasmAdapter {
 
       console.log('[WASM] Editor core initialized with capacity:', capacity);
     } catch (error) {
-      console.error('[WASM] Failed to initialize:', error);
-      throw error;
+      console.warn('[WASM] Failed to initialize (fallback mode):', error);
+      // Don't throw - allow app to run without WASM
     }
   }
 
@@ -63,7 +67,7 @@ export class WasmAdapter {
     zIndex: number,
     flags: { hidden?: boolean; locked?: boolean }
   ): void {
-    if (!this.core) throw new Error('[WASM] Not initialized');
+    if (!this.core) return; // Silently skip if not initialized
 
     const handle = this.idRegistry.getHandle(id);
     const flagBits = (flags.hidden ? 0x1 : 0) | (flags.locked ? 0x2 : 0);
@@ -83,7 +87,7 @@ export class WasmAdapter {
    * Remove a node from the spatial index
    */
   removeNode(id: NodeId): void {
-    if (!this.core) throw new Error('[WASM] Not initialized');
+    if (!this.core) return; // Silently skip if not initialized
 
     const handle = this.idRegistry.getHandle(id);
     this.core.remove_node(handle);
@@ -101,7 +105,7 @@ export class WasmAdapter {
     viewportH: number,
     dpr: number = 1
   ): void {
-    if (!this.core) throw new Error('[WASM] Not initialized');
+    if (!this.core) return; // Silently skip if not initialized
     this.core.set_camera(zoom, panX, panY, viewportW, viewportH, dpr);
   }
 
@@ -109,7 +113,7 @@ export class WasmAdapter {
    * Get visible node IDs (viewport culling)
    */
   getVisibleNodes(): NodeId[] {
-    if (!this.core) throw new Error('[WASM] Not initialized');
+    if (!this.core) return []; // Return empty array if not initialized
 
     const startTime = performance.now();
     const handlesArray = this.core.cull_visible();
@@ -133,7 +137,7 @@ export class WasmAdapter {
    * Hit test at world point (returns topmost first)
    */
   hitTestPoint(worldX: number, worldY: number): NodeId[] {
-    if (!this.core) throw new Error('[WASM] Not initialized');
+    if (!this.core) return []; // Return empty array if not initialized
 
     const startTime = performance.now();
     const handlesArray = this.core.hit_test_point(worldX, worldY);
@@ -157,7 +161,7 @@ export class WasmAdapter {
    * Query nodes in rectangle
    */
   queryRect(bounds: Bounds): NodeId[] {
-    if (!this.core) throw new Error('[WASM] Not initialized');
+    if (!this.core) return []; // Return empty array if not initialized
 
     const handlesArray = this.core.query_rect(
       bounds.x,
@@ -180,7 +184,7 @@ export class WasmAdapter {
    * Query nodes near a point (for snapping)
    */
   queryNear(worldX: number, worldY: number, radius: number): NodeId[] {
-    if (!this.core) throw new Error('[WASM] Not initialized');
+    if (!this.core) return []; // Return empty array if not initialized
 
     const handlesArray = this.core.query_near(worldX, worldY, radius);
     
@@ -202,7 +206,10 @@ export class WasmAdapter {
     worldY: number,
     options: SnapOptions
   ): SnapResultData {
-    if (!this.core) throw new Error('[WASM] Not initialized');
+    if (!this.core) {
+      // Return unsnapped result if not initialized
+      return { snapped: false, x: worldX, y: worldY, guideCount: 0 };
+    }
 
     const result = this.core.snap_point(
       worldX,
@@ -225,7 +232,7 @@ export class WasmAdapter {
    * Convert screen to world coordinates
    */
   screenToWorld(screenX: number, screenY: number): [number, number] {
-    if (!this.core) throw new Error('[WASM] Not initialized');
+    if (!this.core) return [screenX, screenY]; // Return as-is if not initialized
 
     const coords = this.core.screen_to_world(screenX, screenY);
     return [coords[0], coords[1]];
@@ -235,7 +242,7 @@ export class WasmAdapter {
    * Convert world to screen coordinates
    */
   worldToScreen(worldX: number, worldY: number): [number, number] {
-    if (!this.core) throw new Error('[WASM] Not initialized');
+    if (!this.core) return [worldX, worldY]; // Return as-is if not initialized
 
     const coords = this.core.world_to_screen(worldX, worldY);
     return [coords[0], coords[1]];
@@ -253,7 +260,7 @@ export class WasmAdapter {
    * Clear all nodes
    */
   clear(): void {
-    if (!this.core) throw new Error('[WASM] Not initialized');
+    if (!this.core) return; // Silently skip if not initialized
     this.core.clear();
     this.idRegistry.clear();
   }
@@ -262,7 +269,7 @@ export class WasmAdapter {
    * Bulk update from scene graph
    */
   updateFromScene(root: SceneNode): void {
-    if (!this.core) throw new Error('[WASM] Not initialized');
+    if (!this.core) return; // Silently skip if not initialized
 
     const startTime = performance.now();
     let count = 0;

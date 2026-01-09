@@ -7,6 +7,8 @@ import React, { useState, useEffect } from 'react';
 import { useAppStore } from '../../state/store';
 import { findNode, updateNode } from '../../engine/scene/sceneGraph';
 import type { SceneNode, NodeStyle, RectangleNode } from '../../types/core';
+import type { NodeStyleExtended } from '../../types/styles';
+import { createDefaultBoxModel } from '../../types/styles';
 import './PropertiesPanel.css';
 
 export const PropertiesPanel: React.FC = () => {
@@ -19,6 +21,14 @@ export const PropertiesPanel: React.FC = () => {
   const [strokeWidth, setStrokeWidth] = useState(1);
   const [opacity, setOpacity] = useState(1);
   const [cornerRadius, setCornerRadius] = useState(0);
+  const [marginTop, setMarginTop] = useState(0);
+  const [marginRight, setMarginRight] = useState(0);
+  const [marginBottom, setMarginBottom] = useState(0);
+  const [marginLeft, setMarginLeft] = useState(0);
+  const [paddingTop, setPaddingTop] = useState(0);
+  const [paddingRight, setPaddingRight] = useState(0);
+  const [paddingBottom, setPaddingBottom] = useState(0);
+  const [paddingLeft, setPaddingLeft] = useState(0);
 
   // Get selected node
   const selectedNode = React.useMemo(() => {
@@ -41,6 +51,28 @@ export const PropertiesPanel: React.FC = () => {
         setCornerRadius(rectNode.cornerRadius || 0);
       } else {
         setCornerRadius(0);
+      }
+      
+      // Get margin and padding from extended style
+      const extendedStyle = selectedNode.style as unknown as NodeStyleExtended;
+      if (extendedStyle?.boxModel) {
+        setMarginTop(extendedStyle.boxModel.margin.t);
+        setMarginRight(extendedStyle.boxModel.margin.r);
+        setMarginBottom(extendedStyle.boxModel.margin.b);
+        setMarginLeft(extendedStyle.boxModel.margin.l);
+        setPaddingTop(extendedStyle.boxModel.padding.t);
+        setPaddingRight(extendedStyle.boxModel.padding.r);
+        setPaddingBottom(extendedStyle.boxModel.padding.b);
+        setPaddingLeft(extendedStyle.boxModel.padding.l);
+      } else {
+        setMarginTop(0);
+        setMarginRight(0);
+        setMarginBottom(0);
+        setMarginLeft(0);
+        setPaddingTop(0);
+        setPaddingRight(0);
+        setPaddingBottom(0);
+        setPaddingLeft(0);
       }
     }
   }, [selectedNode]);
@@ -104,6 +136,68 @@ export const PropertiesPanel: React.FC = () => {
       });
       updateScene(updatedScene);
     }
+  };
+
+  const handleMarginChange = (side: 't' | 'r' | 'b' | 'l', value: number) => {
+    // Update local state
+    if (side === 't') setMarginTop(value);
+    else if (side === 'r') setMarginRight(value);
+    else if (side === 'b') setMarginBottom(value);
+    else if (side === 'l') setMarginLeft(value);
+    
+    if (!scene) return;
+    
+    const extendedStyle = (selectedNode.style as unknown as NodeStyleExtended) || {};
+    const boxModel = extendedStyle.boxModel || createDefaultBoxModel();
+    
+    const updatedBoxModel = {
+      ...boxModel,
+      margin: {
+        t: side === 't' ? value : marginTop,
+        r: side === 'r' ? value : marginRight,
+        b: side === 'b' ? value : marginBottom,
+        l: side === 'l' ? value : marginLeft,
+      },
+    };
+    
+    const updatedStyle = {
+      ...selectedNode.style,
+      boxModel: updatedBoxModel,
+    } as unknown as NodeStyle;
+    
+    const updatedScene = updateNode(scene, selectedNode.id, { style: updatedStyle });
+    updateScene(updatedScene);
+  };
+
+  const handlePaddingChange = (side: 't' | 'r' | 'b' | 'l', value: number) => {
+    // Update local state
+    if (side === 't') setPaddingTop(value);
+    else if (side === 'r') setPaddingRight(value);
+    else if (side === 'b') setPaddingBottom(value);
+    else if (side === 'l') setPaddingLeft(value);
+    
+    if (!scene) return;
+    
+    const extendedStyle = (selectedNode.style as unknown as NodeStyleExtended) || {};
+    const boxModel = extendedStyle.boxModel || createDefaultBoxModel();
+    
+    const updatedBoxModel = {
+      ...boxModel,
+      padding: {
+        t: side === 't' ? value : paddingTop,
+        r: side === 'r' ? value : paddingRight,
+        b: side === 'b' ? value : paddingBottom,
+        l: side === 'l' ? value : paddingLeft,
+      },
+    };
+    
+    const updatedStyle = {
+      ...selectedNode.style,
+      boxModel: updatedBoxModel,
+    } as unknown as NodeStyle;
+    
+    const updatedScene = updateNode(scene, selectedNode.id, { style: updatedStyle });
+    updateScene(updatedScene);
   };
 
   const updateNodeStyle = (styleUpdates: Partial<NodeStyle>) => {
@@ -238,6 +332,106 @@ export const PropertiesPanel: React.FC = () => {
           </div>
         </div>
       )}
+
+      <div className="properties-section">
+        <label className="properties-label">Margin (Visual Guide)</label>
+        <div className="properties-edges">
+          <div className="edge-input">
+            <label>Top</label>
+            <input
+              type="number"
+              min="0"
+              max="200"
+              value={marginTop}
+              onChange={(e) => handleMarginChange('t', parseFloat(e.target.value) || 0)}
+              className="number-input-small"
+            />
+          </div>
+          <div className="edge-input">
+            <label>Right</label>
+            <input
+              type="number"
+              min="0"
+              max="200"
+              value={marginRight}
+              onChange={(e) => handleMarginChange('r', parseFloat(e.target.value) || 0)}
+              className="number-input-small"
+            />
+          </div>
+          <div className="edge-input">
+            <label>Bottom</label>
+            <input
+              type="number"
+              min="0"
+              max="200"
+              value={marginBottom}
+              onChange={(e) => handleMarginChange('b', parseFloat(e.target.value) || 0)}
+              className="number-input-small"
+            />
+          </div>
+          <div className="edge-input">
+            <label>Left</label>
+            <input
+              type="number"
+              min="0"
+              max="200"
+              value={marginLeft}
+              onChange={(e) => handleMarginChange('l', parseFloat(e.target.value) || 0)}
+              className="number-input-small"
+            />
+          </div>
+        </div>
+      </div>
+
+      <div className="properties-section">
+        <label className="properties-label">Padding (Visual Guide)</label>
+        <div className="properties-edges">
+          <div className="edge-input">
+            <label>Top</label>
+            <input
+              type="number"
+              min="0"
+              max="200"
+              value={paddingTop}
+              onChange={(e) => handlePaddingChange('t', parseFloat(e.target.value) || 0)}
+              className="number-input-small"
+            />
+          </div>
+          <div className="edge-input">
+            <label>Right</label>
+            <input
+              type="number"
+              min="0"
+              max="200"
+              value={paddingRight}
+              onChange={(e) => handlePaddingChange('r', parseFloat(e.target.value) || 0)}
+              className="number-input-small"
+            />
+          </div>
+          <div className="edge-input">
+            <label>Bottom</label>
+            <input
+              type="number"
+              min="0"
+              max="200"
+              value={paddingBottom}
+              onChange={(e) => handlePaddingChange('b', parseFloat(e.target.value) || 0)}
+              className="number-input-small"
+            />
+          </div>
+          <div className="edge-input">
+            <label>Left</label>
+            <input
+              type="number"
+              min="0"
+              max="200"
+              value={paddingLeft}
+              onChange={(e) => handlePaddingChange('l', parseFloat(e.target.value) || 0)}
+              className="number-input-small"
+            />
+          </div>
+        </div>
+      </div>
 
       <div className="properties-info">
         <div className="info-row">

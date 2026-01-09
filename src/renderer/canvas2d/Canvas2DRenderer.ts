@@ -322,7 +322,102 @@ export class Canvas2DRenderer {
   }
 
   /**
-   * Render margin visualization with pattern fill
+   * Create diagonal stripe pattern (for margin/padding visualization)
+   */
+  private createDiagonalPattern(
+    color: string,
+    direction: 'ne' | 'se' = 'ne',
+    zoom: number
+  ): CanvasPattern | null {
+    const { ctx } = this;
+    
+    // Create a small canvas for the pattern
+    const patternCanvas = document.createElement('canvas');
+    const patternSize = Math.max(8, 8 / zoom); // Keep pattern visible at different zoom levels
+    patternCanvas.width = patternSize;
+    patternCanvas.height = patternSize;
+    
+    const pctx = patternCanvas.getContext('2d');
+    if (!pctx) return null;
+    
+    // Fill with transparent background
+    pctx.clearRect(0, 0, patternSize, patternSize);
+    
+    // Draw diagonal lines
+    pctx.strokeStyle = color;
+    pctx.lineWidth = 1;
+    
+    if (direction === 'ne') {
+      // Northeast direction (↗)
+      for (let i = -patternSize; i < patternSize * 2; i += 4) {
+        pctx.beginPath();
+        pctx.moveTo(i, patternSize);
+        pctx.lineTo(i + patternSize, 0);
+        pctx.stroke();
+      }
+    } else {
+      // Southeast direction (↘)
+      for (let i = -patternSize; i < patternSize * 2; i += 4) {
+        pctx.beginPath();
+        pctx.moveTo(i, 0);
+        pctx.lineTo(i + patternSize, patternSize);
+        pctx.stroke();
+      }
+    }
+    
+    return ctx.createPattern(patternCanvas, 'repeat');
+  }
+
+  /**
+   * Render a blue badge with text (for showing pixel values)
+   */
+  private renderBadge(
+    text: string,
+    x: number,
+    y: number,
+    zoom: number
+  ): void {
+    const { ctx } = this;
+    
+    const fontSize = Math.max(10, 10 / zoom);
+    const padding = Math.max(4, 4 / zoom);
+    const borderRadius = Math.max(3, 3 / zoom);
+    
+    ctx.save();
+    ctx.font = `bold ${fontSize}px Arial`;
+    const metrics = ctx.measureText(text);
+    const textWidth = metrics.width;
+    const textHeight = fontSize;
+    
+    const badgeWidth = textWidth + padding * 2;
+    const badgeHeight = textHeight + padding * 2;
+    
+    // Draw rounded rectangle background
+    ctx.fillStyle = '#3b82f6'; // Blue background
+    ctx.beginPath();
+    ctx.moveTo(x - badgeWidth / 2 + borderRadius, y - badgeHeight / 2);
+    ctx.lineTo(x + badgeWidth / 2 - borderRadius, y - badgeHeight / 2);
+    ctx.quadraticCurveTo(x + badgeWidth / 2, y - badgeHeight / 2, x + badgeWidth / 2, y - badgeHeight / 2 + borderRadius);
+    ctx.lineTo(x + badgeWidth / 2, y + badgeHeight / 2 - borderRadius);
+    ctx.quadraticCurveTo(x + badgeWidth / 2, y + badgeHeight / 2, x + badgeWidth / 2 - borderRadius, y + badgeHeight / 2);
+    ctx.lineTo(x - badgeWidth / 2 + borderRadius, y + badgeHeight / 2);
+    ctx.quadraticCurveTo(x - badgeWidth / 2, y + badgeHeight / 2, x - badgeWidth / 2, y + badgeHeight / 2 - borderRadius);
+    ctx.lineTo(x - badgeWidth / 2, y - badgeHeight / 2 + borderRadius);
+    ctx.quadraticCurveTo(x - badgeWidth / 2, y - badgeHeight / 2, x - badgeWidth / 2 + borderRadius, y - badgeHeight / 2);
+    ctx.closePath();
+    ctx.fill();
+    
+    // Draw text
+    ctx.fillStyle = '#ffffff'; // White text
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, x, y);
+    
+    ctx.restore();
+  }
+
+  /**
+   * Render margin visualization with diagonal stripe pattern
    */
   renderMargin(
     bounds: { x: number; y: number; width: number; height: number },
@@ -332,64 +427,72 @@ export class Canvas2DRenderer {
     const { ctx } = this;
 
     ctx.save();
-    ctx.fillStyle = 'rgba(255, 200, 100, 0.2)';
-    ctx.strokeStyle = 'rgba(255, 150, 50, 0.5)';
-    ctx.lineWidth = 1 / zoom;
-    ctx.setLineDash([3 / zoom, 3 / zoom]);
+    
+    // Blue diagonal stripes (↗ direction) for margin
+    const pattern = this.createDiagonalPattern('rgba(96, 165, 250, 0.4)', 'ne', zoom);
+    if (pattern) {
+      ctx.fillStyle = pattern;
+    } else {
+      ctx.fillStyle = 'rgba(96, 165, 250, 0.2)';
+    }
 
     // Top margin
     if (margin.t > 0) {
       ctx.fillRect(bounds.x, bounds.y - margin.t, bounds.width, margin.t);
-      ctx.strokeRect(bounds.x, bounds.y - margin.t, bounds.width, margin.t);
       
-      // Label
-      ctx.fillStyle = '#ff6600';
-      ctx.font = `${10 / zoom}px Arial`;
-      ctx.textAlign = 'center';
-      ctx.fillText(`M:${margin.t}`, bounds.x + bounds.width / 2, bounds.y - margin.t / 2);
+      // Blue badge with pixel value
+      this.renderBadge(
+        `${Math.round(margin.t)}`,
+        bounds.x + bounds.width / 2,
+        bounds.y - margin.t / 2,
+        zoom
+      );
     }
 
     // Right margin
     if (margin.r > 0) {
-      ctx.fillStyle = 'rgba(255, 200, 100, 0.2)';
       ctx.fillRect(bounds.x + bounds.width, bounds.y, margin.r, bounds.height);
-      ctx.strokeRect(bounds.x + bounds.width, bounds.y, margin.r, bounds.height);
       
-      // Label
-      ctx.fillStyle = '#ff6600';
-      ctx.textAlign = 'center';
-      ctx.fillText(`M:${margin.r}`, bounds.x + bounds.width + margin.r / 2, bounds.y + bounds.height / 2);
+      // Blue badge with pixel value
+      this.renderBadge(
+        `${Math.round(margin.r)}`,
+        bounds.x + bounds.width + margin.r / 2,
+        bounds.y + bounds.height / 2,
+        zoom
+      );
     }
 
     // Bottom margin
     if (margin.b > 0) {
-      ctx.fillStyle = 'rgba(255, 200, 100, 0.2)';
       ctx.fillRect(bounds.x, bounds.y + bounds.height, bounds.width, margin.b);
-      ctx.strokeRect(bounds.x, bounds.y + bounds.height, bounds.width, margin.b);
       
-      // Label
-      ctx.fillStyle = '#ff6600';
-      ctx.textAlign = 'center';
-      ctx.fillText(`M:${margin.b}`, bounds.x + bounds.width / 2, bounds.y + bounds.height + margin.b / 2);
+      // Blue badge with pixel value
+      this.renderBadge(
+        `${Math.round(margin.b)}`,
+        bounds.x + bounds.width / 2,
+        bounds.y + bounds.height + margin.b / 2,
+        zoom
+      );
     }
 
     // Left margin
     if (margin.l > 0) {
-      ctx.fillStyle = 'rgba(255, 200, 100, 0.2)';
       ctx.fillRect(bounds.x - margin.l, bounds.y, margin.l, bounds.height);
-      ctx.strokeRect(bounds.x - margin.l, bounds.y, margin.l, bounds.height);
       
-      // Label
-      ctx.fillStyle = '#ff6600';
-      ctx.textAlign = 'center';
-      ctx.fillText(`M:${margin.l}`, bounds.x - margin.l / 2, bounds.y + bounds.height / 2);
+      // Blue badge with pixel value
+      this.renderBadge(
+        `${Math.round(margin.l)}`,
+        bounds.x - margin.l / 2,
+        bounds.y + bounds.height / 2,
+        zoom
+      );
     }
 
     ctx.restore();
   }
 
   /**
-   * Render padding visualization with pattern fill
+   * Render padding visualization with diagonal stripe pattern
    */
   renderPadding(
     bounds: { x: number; y: number; width: number; height: number },
@@ -399,57 +502,65 @@ export class Canvas2DRenderer {
     const { ctx } = this;
 
     ctx.save();
-    ctx.fillStyle = 'rgba(100, 200, 255, 0.2)';
-    ctx.strokeStyle = 'rgba(50, 150, 255, 0.5)';
-    ctx.lineWidth = 1 / zoom;
-    ctx.setLineDash([3 / zoom, 3 / zoom]);
+    
+    // Pink diagonal stripes (↘ direction) for padding
+    const pattern = this.createDiagonalPattern('rgba(236, 72, 153, 0.4)', 'se', zoom);
+    if (pattern) {
+      ctx.fillStyle = pattern;
+    } else {
+      ctx.fillStyle = 'rgba(236, 72, 153, 0.2)';
+    }
 
     // Top padding
     if (padding.t > 0) {
       ctx.fillRect(bounds.x, bounds.y, bounds.width, padding.t);
-      ctx.strokeRect(bounds.x, bounds.y, bounds.width, padding.t);
       
-      // Label
-      ctx.fillStyle = '#0066ff';
-      ctx.font = `${10 / zoom}px Arial`;
-      ctx.textAlign = 'center';
-      ctx.fillText(`P:${padding.t}`, bounds.x + bounds.width / 2, bounds.y + padding.t / 2);
+      // Blue badge with pixel value
+      this.renderBadge(
+        `${Math.round(padding.t)}`,
+        bounds.x + bounds.width / 2,
+        bounds.y + padding.t / 2,
+        zoom
+      );
     }
 
     // Right padding
     if (padding.r > 0) {
-      ctx.fillStyle = 'rgba(100, 200, 255, 0.2)';
       ctx.fillRect(bounds.x + bounds.width - padding.r, bounds.y, padding.r, bounds.height);
-      ctx.strokeRect(bounds.x + bounds.width - padding.r, bounds.y, padding.r, bounds.height);
       
-      // Label
-      ctx.fillStyle = '#0066ff';
-      ctx.textAlign = 'center';
-      ctx.fillText(`P:${padding.r}`, bounds.x + bounds.width - padding.r / 2, bounds.y + bounds.height / 2);
+      // Blue badge with pixel value
+      this.renderBadge(
+        `${Math.round(padding.r)}`,
+        bounds.x + bounds.width - padding.r / 2,
+        bounds.y + bounds.height / 2,
+        zoom
+      );
     }
 
     // Bottom padding
     if (padding.b > 0) {
-      ctx.fillStyle = 'rgba(100, 200, 255, 0.2)';
       ctx.fillRect(bounds.x, bounds.y + bounds.height - padding.b, bounds.width, padding.b);
-      ctx.strokeRect(bounds.x, bounds.y + bounds.height - padding.b, bounds.width, padding.b);
       
-      // Label
-      ctx.fillStyle = '#0066ff';
-      ctx.textAlign = 'center';
-      ctx.fillText(`P:${padding.b}`, bounds.x + bounds.width / 2, bounds.y + bounds.height - padding.b / 2);
+      // Blue badge with pixel value
+      this.renderBadge(
+        `${Math.round(padding.b)}`,
+        bounds.x + bounds.width / 2,
+        bounds.y + bounds.height - padding.b / 2,
+        zoom
+      );
     }
 
     // Left padding
     if (padding.l > 0) {
-      ctx.fillStyle = 'rgba(100, 200, 255, 0.2)';
       ctx.fillRect(bounds.x, bounds.y, padding.l, bounds.height);
-      ctx.strokeRect(bounds.x, bounds.y, padding.l, bounds.height);
       
-      // Label
-      ctx.fillStyle = '#0066ff';
-      ctx.textAlign = 'center';
-      ctx.fillText(`P:${padding.l}`, bounds.x + padding.l / 2, bounds.y + bounds.height / 2);
+      // Blue badge with pixel value
+      this.renderBadge(
+        `${Math.round(padding.l)}`,
+        bounds.x + padding.l / 2,
+        bounds.y + bounds.height / 2,
+        zoom
+      );
     }
 
     ctx.restore();
