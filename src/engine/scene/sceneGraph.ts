@@ -139,8 +139,23 @@ export function createRectangle(
   bounds: Bounds,
   style?: Partial<NodeStyle>
 ): RectangleNode {
+  // Default style with 20px margin and 10px padding
+  const defaultStyleWithBoxModel = {
+    ...style,
+    boxModel: {
+      margin: { t: 20, r: 20, b: 20, l: 20 },
+      padding: { t: 10, r: 10, b: 10, l: 10 },
+      border: {
+        width: { t: 0, r: 0, b: 0, l: 0 },
+        color: '#000000',
+        style: 'solid' as const,
+      },
+      radius: { tl: 0, tr: 0, br: 0, bl: 0 },
+    },
+  };
+
   return {
-    ...createBaseNode(NodeType.Rectangle, name, bounds, style),
+    ...createBaseNode(NodeType.Rectangle, name, bounds, defaultStyleWithBoxModel),
     type: NodeType.Rectangle,
     cornerRadius: 0,
   } as RectangleNode;
