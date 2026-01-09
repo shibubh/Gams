@@ -348,22 +348,35 @@ export class SelectTool implements Tool {
       const parentBounds = parentFrame.bounds;
       const nodeBounds = currentNode.bounds;
 
-      // Constrain to stay within parent frame
-      // Left constraint
-      if (newX < parentBounds.x) {
+      // Ensure node can fit within parent before constraining position
+      // If node is larger than parent, position at parent origin
+      const canFitHorizontally = nodeBounds.width <= parentBounds.width;
+      const canFitVertically = nodeBounds.height <= parentBounds.height;
+
+      if (!canFitHorizontally) {
         newX = parentBounds.x;
+      } else {
+        // Left constraint
+        if (newX < parentBounds.x) {
+          newX = parentBounds.x;
+        }
+        // Right constraint
+        if (newX + nodeBounds.width > parentBounds.x + parentBounds.width) {
+          newX = parentBounds.x + parentBounds.width - nodeBounds.width;
+        }
       }
-      // Right constraint
-      if (newX + nodeBounds.width > parentBounds.x + parentBounds.width) {
-        newX = parentBounds.x + parentBounds.width - nodeBounds.width;
-      }
-      // Top constraint
-      if (newY < parentBounds.y) {
+
+      if (!canFitVertically) {
         newY = parentBounds.y;
-      }
-      // Bottom constraint
-      if (newY + nodeBounds.height > parentBounds.y + parentBounds.height) {
-        newY = parentBounds.y + parentBounds.height - nodeBounds.height;
+      } else {
+        // Top constraint
+        if (newY < parentBounds.y) {
+          newY = parentBounds.y;
+        }
+        // Bottom constraint
+        if (newY + nodeBounds.height > parentBounds.y + parentBounds.height) {
+          newY = parentBounds.y + parentBounds.height - nodeBounds.height;
+        }
       }
     }
 
