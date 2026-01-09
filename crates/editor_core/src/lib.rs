@@ -13,12 +13,14 @@
 mod spatial_index;
 mod camera;
 mod utils;
+mod smart_guides;
 
 use wasm_bindgen::prelude::*;
 use std::collections::HashMap;
 
 pub use spatial_index::SpatialIndex;
 pub use camera::Camera;
+pub use smart_guides::{AlignmentGuide, SpacingGuide, DistanceMeasurement};
 
 // ============================================================================
 // Engine State
@@ -276,5 +278,97 @@ impl EditorCore {
             y: snapped_y,
             guide_count,
         }
+    }
+
+    /// Calculate alignment guides (Figma-style)
+    /// Shows when edges or centers of objects align
+    #[wasm_bindgen]
+    pub fn calculate_alignment_guides(
+        &self,
+        moving_handle: u32,
+        visible_handles: Vec<u32>,
+        threshold: f32,
+    ) -> Vec<AlignmentGuide> {
+        // Get bounds for moving node
+        let moving_bounds = match self.spatial_index.get_bounds(moving_handle) {
+            Some(bounds) => bounds,
+            None => return Vec::new(),
+        };
+
+        // Get bounds for all visible nodes (excluding the moving node)
+        let mut all_bounds = Vec::new();
+        for &handle in &visible_handles {
+            if handle != moving_handle {
+                if let Some(bounds) = self.spatial_index.get_bounds(handle) {
+                    all_bounds.push(bounds);
+                }
+            }
+        }
+
+        smart_guides::calculate_alignment_guides(moving_bounds, &all_bounds, threshold)
+    }
+
+    /// Calculate spacing guides (Figma-style)
+    /// Shows when spacing between objects is equal
+    #[wasm_bindgen]
+    pub fn calculate_spacing_guides(
+        &self,
+        moving_handle: u32,
+        visible_handles: Vec<u32>,
+    ) -> Vec<SpacingGuide> {
+        // Get bounds for moving node
+        let moving_bounds = match self.spatial_index.get_bounds(moving_handle) {
+            Some(bounds) => bounds,
+            None => return Vec::new(),
+        };
+
+        // Get bounds for all visible nodes (excluding the moving node)
+        let mut all_bounds = Vec::new();
+        for &handle in &visible_handles {
+            if handle != moving_handle {
+                if let Some(bounds) = self.spatial_index.get_bounds(handle) {
+                    all_bounds.push(bounds);
+                }
+            }
+        }
+
+        smart_guides::calculate_spacing_guides(moving_bounds, &all_bounds)
+    }
+
+    /// Calculate distance measurements
+    /// Shows distance from object to nearest siblings or parent bounds
+    #[wasm_bindgen]
+    pub fn calculate_distance_measurements(
+        &self,
+        moving_handle: u32,
+        visible_handles: Vec<u32>,
+        parent_x: Option<f32>,
+        parent_y: Option<f32>,
+        parent_width: Option<f32>,
+        parent_height: Option<f32>,
+    ) -> Vec<DistanceMeasurement> {
+        // Get bounds for moving node
+        let moving_bounds = match self.spatial_index.get_bounds(moving_handle) {
+            Some(bounds) => bounds,
+            None => return Vec::new(),
+        };
+
+        // Get bounds for all visible nodes (excluding the moving node)
+        let mut all_bounds = Vec::new();
+        for &handle in &visible_handles {
+            if handle != moving_handle {
+                if let Some(bounds) = self.spatial_index.get_bounds(handle) {
+                    all_bounds.push(bounds);
+                }
+            }
+        }
+
+        // Build parent bounds if provided
+        let parent_bounds = match (parent_x, parent_y, parent_width, parent_height) {
+            (Some(x), Some(y), Some(w), Some(h)) => Some((x, y, w, h)),
+            _ => None,
+        };
+
+        smart_guides::calculate_distance_measurements(moving_bounds, &all_bounds, parent_bounds)
     }
 }
