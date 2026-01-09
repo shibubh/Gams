@@ -192,14 +192,16 @@ export class Canvas2DRenderer {
     if (zoom > 4) gridSize = 10;
 
     ctx.save();
-    ctx.strokeStyle = '#e0e0e0';
-    ctx.lineWidth = 1;
+    ctx.strokeStyle = 'rgba(200, 200, 200, 0.3)';
+    ctx.lineWidth = 1 / zoom;
 
     const startX = Math.floor(-offsetX / gridSize) * gridSize;
     const startY = Math.floor(-offsetY / gridSize) * gridSize;
+    const endX = Math.ceil((width / zoom - offsetX) / gridSize) * gridSize;
+    const endY = Math.ceil((height / zoom - offsetY) / gridSize) * gridSize;
 
     // Vertical lines
-    for (let x = startX; x < width / zoom; x += gridSize) {
+    for (let x = startX; x <= endX; x += gridSize) {
       ctx.beginPath();
       ctx.moveTo(x, -offsetY);
       ctx.lineTo(x, height / zoom - offsetY);
@@ -207,11 +209,226 @@ export class Canvas2DRenderer {
     }
 
     // Horizontal lines
-    for (let y = startY; y < height / zoom; y += gridSize) {
+    for (let y = startY; y <= endY; y += gridSize) {
       ctx.beginPath();
       ctx.moveTo(-offsetX, y);
       ctx.lineTo(width / zoom - offsetX, y);
       ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+
+  /**
+   * Render distance guide between two bounds
+   */
+  renderDistanceGuide(
+    fromBounds: { x: number; y: number; width: number; height: number },
+    toBounds: { x: number; y: number; width: number; height: number },
+    direction: 'horizontal' | 'vertical',
+    label: string,
+    zoom: number
+  ): void {
+    const { ctx } = this;
+
+    ctx.save();
+    ctx.strokeStyle = '#ff00ff';
+    ctx.fillStyle = '#ff00ff';
+    ctx.lineWidth = 1 / zoom;
+    ctx.setLineDash([4 / zoom, 4 / zoom]);
+
+    if (direction === 'horizontal') {
+      const fromX = fromBounds.x + fromBounds.width;
+      const toX = toBounds.x;
+      const centerY = (fromBounds.y + fromBounds.y + fromBounds.height) / 2;
+
+      // Draw horizontal line
+      ctx.beginPath();
+      ctx.moveTo(fromX, centerY);
+      ctx.lineTo(toX, centerY);
+      ctx.stroke();
+
+      // Draw end caps
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo(fromX, centerY - 5 / zoom);
+      ctx.lineTo(fromX, centerY + 5 / zoom);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(toX, centerY - 5 / zoom);
+      ctx.lineTo(toX, centerY + 5 / zoom);
+      ctx.stroke();
+
+      // Draw label
+      const labelX = (fromX + toX) / 2;
+      const labelY = centerY - 8 / zoom;
+      ctx.font = `${12 / zoom}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+      ctx.fillText(label, labelX, labelY);
+    } else {
+      const fromY = fromBounds.y + fromBounds.height;
+      const toY = toBounds.y;
+      const centerX = (fromBounds.x + fromBounds.x + fromBounds.width) / 2;
+
+      // Draw vertical line
+      ctx.beginPath();
+      ctx.moveTo(centerX, fromY);
+      ctx.lineTo(centerX, toY);
+      ctx.stroke();
+
+      // Draw end caps
+      ctx.setLineDash([]);
+      ctx.beginPath();
+      ctx.moveTo(centerX - 5 / zoom, fromY);
+      ctx.lineTo(centerX + 5 / zoom, fromY);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(centerX - 5 / zoom, toY);
+      ctx.lineTo(centerX + 5 / zoom, toY);
+      ctx.stroke();
+
+      // Draw label
+      const labelX = centerX + 8 / zoom;
+      const labelY = (fromY + toY) / 2;
+      ctx.font = `${12 / zoom}px Arial`;
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(label, labelX, labelY);
+    }
+
+    ctx.restore();
+  }
+
+  /**
+   * Render margin visualization with pattern fill
+   */
+  renderMargin(
+    bounds: { x: number; y: number; width: number; height: number },
+    margin: { t: number; r: number; b: number; l: number },
+    zoom: number
+  ): void {
+    const { ctx } = this;
+
+    ctx.save();
+    ctx.fillStyle = 'rgba(255, 200, 100, 0.2)';
+    ctx.strokeStyle = 'rgba(255, 150, 50, 0.5)';
+    ctx.lineWidth = 1 / zoom;
+    ctx.setLineDash([3 / zoom, 3 / zoom]);
+
+    // Top margin
+    if (margin.t > 0) {
+      ctx.fillRect(bounds.x, bounds.y - margin.t, bounds.width, margin.t);
+      ctx.strokeRect(bounds.x, bounds.y - margin.t, bounds.width, margin.t);
+      
+      // Label
+      ctx.fillStyle = '#ff6600';
+      ctx.font = `${10 / zoom}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.fillText(`M:${margin.t}`, bounds.x + bounds.width / 2, bounds.y - margin.t / 2);
+    }
+
+    // Right margin
+    if (margin.r > 0) {
+      ctx.fillStyle = 'rgba(255, 200, 100, 0.2)';
+      ctx.fillRect(bounds.x + bounds.width, bounds.y, margin.r, bounds.height);
+      ctx.strokeRect(bounds.x + bounds.width, bounds.y, margin.r, bounds.height);
+      
+      // Label
+      ctx.fillStyle = '#ff6600';
+      ctx.textAlign = 'center';
+      ctx.fillText(`M:${margin.r}`, bounds.x + bounds.width + margin.r / 2, bounds.y + bounds.height / 2);
+    }
+
+    // Bottom margin
+    if (margin.b > 0) {
+      ctx.fillStyle = 'rgba(255, 200, 100, 0.2)';
+      ctx.fillRect(bounds.x, bounds.y + bounds.height, bounds.width, margin.b);
+      ctx.strokeRect(bounds.x, bounds.y + bounds.height, bounds.width, margin.b);
+      
+      // Label
+      ctx.fillStyle = '#ff6600';
+      ctx.textAlign = 'center';
+      ctx.fillText(`M:${margin.b}`, bounds.x + bounds.width / 2, bounds.y + bounds.height + margin.b / 2);
+    }
+
+    // Left margin
+    if (margin.l > 0) {
+      ctx.fillStyle = 'rgba(255, 200, 100, 0.2)';
+      ctx.fillRect(bounds.x - margin.l, bounds.y, margin.l, bounds.height);
+      ctx.strokeRect(bounds.x - margin.l, bounds.y, margin.l, bounds.height);
+      
+      // Label
+      ctx.fillStyle = '#ff6600';
+      ctx.textAlign = 'center';
+      ctx.fillText(`M:${margin.l}`, bounds.x - margin.l / 2, bounds.y + bounds.height / 2);
+    }
+
+    ctx.restore();
+  }
+
+  /**
+   * Render padding visualization with pattern fill
+   */
+  renderPadding(
+    bounds: { x: number; y: number; width: number; height: number },
+    padding: { t: number; r: number; b: number; l: number },
+    zoom: number
+  ): void {
+    const { ctx } = this;
+
+    ctx.save();
+    ctx.fillStyle = 'rgba(100, 200, 255, 0.2)';
+    ctx.strokeStyle = 'rgba(50, 150, 255, 0.5)';
+    ctx.lineWidth = 1 / zoom;
+    ctx.setLineDash([3 / zoom, 3 / zoom]);
+
+    // Top padding
+    if (padding.t > 0) {
+      ctx.fillRect(bounds.x, bounds.y, bounds.width, padding.t);
+      ctx.strokeRect(bounds.x, bounds.y, bounds.width, padding.t);
+      
+      // Label
+      ctx.fillStyle = '#0066ff';
+      ctx.font = `${10 / zoom}px Arial`;
+      ctx.textAlign = 'center';
+      ctx.fillText(`P:${padding.t}`, bounds.x + bounds.width / 2, bounds.y + padding.t / 2);
+    }
+
+    // Right padding
+    if (padding.r > 0) {
+      ctx.fillStyle = 'rgba(100, 200, 255, 0.2)';
+      ctx.fillRect(bounds.x + bounds.width - padding.r, bounds.y, padding.r, bounds.height);
+      ctx.strokeRect(bounds.x + bounds.width - padding.r, bounds.y, padding.r, bounds.height);
+      
+      // Label
+      ctx.fillStyle = '#0066ff';
+      ctx.textAlign = 'center';
+      ctx.fillText(`P:${padding.r}`, bounds.x + bounds.width - padding.r / 2, bounds.y + bounds.height / 2);
+    }
+
+    // Bottom padding
+    if (padding.b > 0) {
+      ctx.fillStyle = 'rgba(100, 200, 255, 0.2)';
+      ctx.fillRect(bounds.x, bounds.y + bounds.height - padding.b, bounds.width, padding.b);
+      ctx.strokeRect(bounds.x, bounds.y + bounds.height - padding.b, bounds.width, padding.b);
+      
+      // Label
+      ctx.fillStyle = '#0066ff';
+      ctx.textAlign = 'center';
+      ctx.fillText(`P:${padding.b}`, bounds.x + bounds.width / 2, bounds.y + bounds.height - padding.b / 2);
+    }
+
+    // Left padding
+    if (padding.l > 0) {
+      ctx.fillStyle = 'rgba(100, 200, 255, 0.2)';
+      ctx.fillRect(bounds.x, bounds.y, padding.l, bounds.height);
+      ctx.strokeRect(bounds.x, bounds.y, padding.l, bounds.height);
+      
+      // Label
+      ctx.fillStyle = '#0066ff';
+      ctx.textAlign = 'center';
+      ctx.fillText(`P:${padding.l}`, bounds.x + padding.l / 2, bounds.y + bounds.height / 2);
     }
 
     ctx.restore();

@@ -256,6 +256,7 @@ export class SelectTool implements Tool {
   /**
    * Move a node and all its children.
    * When moving a frame, all child shapes move with it.
+   * Objects can now be dragged outside their parent frame.
    */
   private moveNodeAndChildren(
     scene: any,
@@ -266,7 +267,7 @@ export class SelectTool implements Tool {
     const currentNode = findNode(scene, nodeId);
     if (!currentNode) return scene;
 
-    // Update the node's position
+    // Update the node's position (no bounds checking - allow outside parent)
     const newBounds = {
       x: currentNode.bounds.x + deltaX,
       y: currentNode.bounds.y + deltaY,

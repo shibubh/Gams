@@ -7,6 +7,12 @@ import { CameraController } from '../engine/camera';
 import { WasmAdapter } from '../engine/wasm/WasmAdapter';
 import { WebGLRenderer } from './webgl/WebGLRenderer';
 import { Canvas2DRenderer } from './canvas2d/Canvas2DRenderer';
+import { 
+  calculateDistanceGuides, 
+  getMarginPaddingVisualization,
+  type DistanceGuide,
+  type MarginPaddingVisualization 
+} from './VisualGuides';
 import type {
   SceneNode,
   NodeId,
@@ -14,7 +20,8 @@ import type {
   TextNode,
 } from '../types/core';
 import { NodeType } from '../types/core';
-import { collectAllNodes } from '../engine/scene/sceneGraph';
+import { collectAllNodes, findNode } from '../engine/scene/sceneGraph';
+import type { NodeStyleExtended } from '../types/styles';
 
 export interface RenderEngineOptions {
   preferWebGL?: boolean;
@@ -351,15 +358,15 @@ export class RenderEngine {
     // Apply camera transform
     renderer.applyCamera(camera);
 
-    // Layer 1: Grid
-    // renderer.renderGrid(camera.zoom, camera.position[0], camera.position[1]);
+    // Layer 0: Grid
+    renderer.renderGrid(camera.zoom, camera.position[0], camera.position[1]);
 
-    // Layer 2: Shapes
+    // Layer 1: Shapes
     nodes.forEach((node) => {
       this.renderNodeCanvas2D(node, renderer);
     });
 
-    // Layer 3: Selection with resize handles
+    // Layer 2: Selection with resize handles
     nodes.forEach((node) => {
       if (this.selectedNodes.has(node.id)) {
         renderer.renderSelection(
@@ -378,6 +385,40 @@ export class RenderEngine {
         );
       }
     });
+
+    // Layer 3: Visual guides (distance measurements)
+    if (this.selectedNodes.size === 1 && this.scene) {
+      const selectedId = Array.from(this.selectedNodes)[0];
+      const selectedNode = findNode(this.scene, selectedId);
+      
+      if (selectedNode) {
+        const guides = calculateDistanceGuides(selectedNode, nodes, 500);
+        guides.forEach(guide => {
+          renderer.renderDistanceGuide(
+            guide.from,
+            guide.to,
+            guide.direction,
+            guide.label,
+            camera.zoom
+          );
+        });
+
+        // Render margin/padding visualization
+        const mpViz = getMarginPaddingVisualization(
+          selectedNode,
+          selectedNode.style as unknown as NodeStyleExtended
+        );
+        
+        if (mpViz) {
+          if (mpViz.margin) {
+            renderer.renderMargin(mpViz.bounds, mpViz.margin, camera.zoom);
+          }
+          if (mpViz.padding) {
+            renderer.renderPadding(mpViz.bounds, mpViz.padding, camera.zoom);
+          }
+        }
+      }
+    }
 
     renderer.restore();
   }
