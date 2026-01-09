@@ -19,6 +19,11 @@ export interface AppState {
   // Tools
   currentTool: ToolType;
 
+  // Interaction state (for Figma-style guides)
+  isDragging: boolean;
+  isResizing: boolean;
+  draggedNodes: Set<NodeId>;
+
   // History
   canUndo: boolean;
   canRedo: boolean;
@@ -32,6 +37,8 @@ export interface AppState {
   clearSelection: () => void;
   setHoveredNode: (nodeId: NodeId | null) => void;
   setTool: (tool: ToolType) => void;
+  setDragging: (isDragging: boolean, nodeIds?: NodeId[]) => void;
+  setResizing: (isResizing: boolean) => void;
   undo: () => void;
   redo: () => void;
 }
@@ -45,6 +52,9 @@ export const useAppStore = create<AppState>((set) => ({
   selectedNodes: new Set(),
   hoveredNode: null,
   currentTool: 'SELECT' as ToolType,
+  isDragging: false,
+  isResizing: false,
+  draggedNodes: new Set(),
   canUndo: false,
   canRedo: false,
 
@@ -74,6 +84,11 @@ export const useAppStore = create<AppState>((set) => ({
   setHoveredNode: (nodeId) => set({ hoveredNode: nodeId }),
 
   setTool: (tool) => set({ currentTool: tool }),
+
+  setDragging: (isDragging, nodeIds = []) => 
+    set({ isDragging, draggedNodes: new Set(nodeIds) }),
+
+  setResizing: (isResizing) => set({ isResizing }),
 
   undo: () => {
     // TODO: Implement history undo

@@ -1,6 +1,17 @@
 # Design Canvas - Production-Grade Figma-like Design Tool
 
-A high-performance, scalable infinite canvas design tool built with React 19, TypeScript, and WebGL2.
+A high-performance, scalable infinite canvas design tool built with React 19, TypeScript, WebGL2, and **WASM-accelerated spatial indexing**.
+
+## 🚀 NEW: WASM Performance Layer + CSS-like Styling
+
+**Latest enhancements:**
+- ⚡ **WASM-accelerated** spatial indexing (Rust) for 60fps at 100k+ nodes
+- 🎨 **CSS-like styling system** with box model, shadows, borders, radius
+- 📊 **Real-time performance monitoring** overlay
+- 🎯 **Sub-2ms culling** and hit-testing
+- 🖱️ **Optimized wheel handling** for smooth pan/zoom
+
+👉 **[Quick Start Guide](./WASM_QUICKSTART.md)** | **[Architecture Docs](./WASM_ARCHITECTURE.md)**
 
 ## 🏗️ Architecture Overview
 
@@ -8,10 +19,13 @@ This is a production-ready implementation of a Figma-like design tool featuring:
 
 - **Infinite Canvas** with smooth pan/zoom
 - **WebGL2 Rendering** with Canvas2D fallback
+- **WASM Performance Layer** (Rust) for spatial queries
 - **Scene Graph / AST-based** model
+- **CSS-like Styling** (box model, shadows, borders, radius)
 - **Immutable State Management** using Zustand
 - **Plugin-Ready Architecture**
 - **60 FPS Performance** at scale (100k+ objects)
+- **Real-time Performance Monitoring**
 
 ## 📁 Project Structure
 

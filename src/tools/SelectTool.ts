@@ -6,6 +6,7 @@
 import type { PointerState, Point, ToolType, Bounds } from '../types';
 import type { Tool, ToolContext } from './Tool';
 import { getNodesAtPoint, updateNode, findNode } from '../engine/scene/sceneGraph';
+import { useAppStore } from '../state/store';
 
 type ResizeHandle = 
   | 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right'
@@ -48,6 +49,7 @@ export class SelectTool implements Tool {
           this.originalBounds = { ...selectedNode.bounds };
           this.dragStart = state.worldPosition;
           this.draggedNodeIds = new Set([selectedNodeId]);
+          useAppStore.getState().setResizing(true);
           this.context.markDirty();
           return;
         }
@@ -80,6 +82,7 @@ export class SelectTool implements Tool {
       this.dragStart = state.worldPosition;
       this.isDragging = true;
       this.draggedNodeIds = new Set(this.context.getSelection());
+      useAppStore.getState().setDragging(true, Array.from(this.draggedNodeIds));
     } else {
       // Clear selection if clicking empty space
       if (!state.shiftKey && !state.metaKey) {
@@ -138,6 +141,12 @@ export class SelectTool implements Tool {
     this.originalBounds = null;
     this.dragStart = null;
     this.draggedNodeIds.clear();
+    
+    // Update global state
+    useAppStore.getState().setDragging(false, []);
+    useAppStore.getState().setResizing(false);
+    
+    this.context.markDirty();
   }
 
   onActivate(): void {
@@ -256,6 +265,7 @@ export class SelectTool implements Tool {
   /**
    * Move a node and all its children.
    * When moving a frame, all child shapes move with it.
+   * Objects can now be dragged outside their parent frame.
    */
   private moveNodeAndChildren(
     scene: any,
@@ -266,7 +276,7 @@ export class SelectTool implements Tool {
     const currentNode = findNode(scene, nodeId);
     if (!currentNode) return scene;
 
-    // Update the node's position
+    // Update the node's position (no bounds checking - allow outside parent)
     const newBounds = {
       x: currentNode.bounds.x + deltaX,
       y: currentNode.bounds.y + deltaY,

@@ -3,7 +3,7 @@
  * Handles batched rendering, layers, and shader management.
  */
 
-import { mat3 } from 'gl-matrix';
+import { mat3, vec2 } from 'gl-matrix';
 import type { Viewport } from '../../types/core';
 
 export interface RendererOptions {
@@ -90,6 +90,24 @@ export class WebGLRenderer {
       this.createProgram(
         this.getGridVertexShader(),
         this.getGridFragmentShader()
+      )
+    );
+
+    // Line shader (for visual guides)
+    this.programs.set(
+      'line',
+      this.createProgram(
+        this.getLineVertexShader(),
+        this.getLineFragmentShader()
+      )
+    );
+
+    // Text shader (for labels)
+    this.programs.set(
+      'text',
+      this.createProgram(
+        this.getTextVertexShader(),
+        this.getTextFragmentShader()
       )
     );
   }
@@ -392,15 +410,416 @@ export class WebGLRenderer {
   /**
    * Render background grid.
    */
-  renderGrid(_viewMatrix: mat3, _zoom: number): void {
+  renderGrid(viewMatrix: mat3, zoom: number): void {
     const { gl } = this;
-    const program = this.programs.get('grid');
+    const program = this.programs.get('line');
     if (!program) return;
 
     gl.useProgram(program);
 
-    // Grid rendering logic
-    // TODO: Implement efficient grid rendering with proper spacing based on zoom
+    // Determine grid spacing based on zoom
+    let gridSize = 50;
+    if (zoom < 0.5) gridSize = 100;
+    if (zoom > 2) gridSize = 25;
+    if (zoom > 4) gridSize = 10;
+
+    const width = this.viewport.width;
+    const height = this.viewport.height;
+
+    // Calculate world bounds from view matrix
+    const invView = mat3.create();
+    mat3.invert(invView, viewMatrix);
+    
+    const topLeft = vec2.fromValues(0, 0);
+    const bottomRight = vec2.fromValues(width, height);
+    vec2.transformMat3(topLeft, topLeft, invView);
+    vec2.transformMat3(bottomRight, bottomRight, invView);
+
+    const startX = Math.floor(topLeft[0] / gridSize) * gridSize;
+    const endX = Math.ceil(bottomRight[0] / gridSize) * gridSize;
+    const startY = Math.floor(topLeft[1] / gridSize) * gridSize;
+    const endY = Math.ceil(bottomRight[1] / gridSize) * gridSize;
+
+    // Render vertical lines
+    for (let x = startX; x <= endX; x += gridSize) {
+      this.renderLine(x, startY, x, endY, 'rgba(200, 200, 200, 0.3)', 1, viewMatrix);
+    }
+
+    // Render horizontal lines
+    for (let y = startY; y <= endY; y += gridSize) {
+      this.renderLine(startX, y, endX, y, 'rgba(200, 200, 200, 0.3)', 1, viewMatrix);
+    }
+  }
+
+  /**
+   * Render a line
+   */
+  renderLine(
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
+    color: string,
+    width: number,
+    viewMatrix: mat3
+  ): void {
+    const { gl } = this;
+    const program = this.programs.get('line');
+    if (!program) return;
+
+    gl.useProgram(program);
+
+    // Create line vertices
+    const vertices = new Float32Array([x1, y1, x2, y2]);
+
+    const buffer = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.bufferData(gl.ARRAY_BUFFER, vertices, gl.STATIC_DRAW);
+
+    gl.enableVertexAttribArray(0);
+    gl.vertexAttribPointer(0, 2, gl.FLOAT, false, 0, 0);
+
+    // Set uniforms
+    const uViewMatrix = gl.getUniformLocation(program, 'u_viewMatrix');
+    const uViewport = gl.getUniformLocation(program, 'u_viewport');
+    const uColor = gl.getUniformLocation(program, 'u_color');
+
+    gl.uniformMatrix3fv(uViewMatrix, false, viewMatrix);
+    gl.uniform2f(uViewport, this.viewport.width, this.viewport.height);
+    
+    const rgba = this.parseColorRGBA(color);
+    gl.uniform4fv(uColor, rgba);
+
+    gl.lineWidth(width);
+    gl.drawArrays(gl.LINES, 0, 2);
+
+    gl.deleteBuffer(buffer);
+  }
+
+  /**
+   * Render alignment guide (Figma-style magenta line)
+   */
+  renderAlignmentGuide(
+    guide: { type: 'vertical' | 'horizontal'; position: number },
+    viewMatrix: mat3,
+    zoom: number
+  ): void {
+    const { gl } = this;
+    const width = this.viewport.width / zoom;
+    const height = this.viewport.height / zoom;
+
+    // Calculate world bounds from view matrix
+    const invView = mat3.create();
+    mat3.invert(invView, viewMatrix);
+    
+    const topLeft = vec2.fromValues(0, 0);
+    const bottomRight = vec2.fromValues(this.viewport.width, this.viewport.height);
+    vec2.transformMat3(topLeft, topLeft, invView);
+    vec2.transformMat3(bottomRight, bottomRight, invView);
+
+    if (guide.type === 'vertical') {
+      // Draw vertical line at guide.position
+      this.renderLine(
+        guide.position,
+        topLeft[1],
+        guide.position,
+        bottomRight[1],
+        '#ff00ff', // Magenta like Figma
+        2,
+        viewMatrix
+      );
+    } else {
+      // Draw horizontal line at guide.position
+      this.renderLine(
+        topLeft[0],
+        guide.position,
+        bottomRight[0],
+        guide.position,
+        '#ff00ff', // Magenta like Figma
+        2,
+        viewMatrix
+      );
+    }
+  }
+
+  /**
+   * Render spacing guide (equal spacing indicator)
+   */
+  renderSpacingGuide(
+    guide: {
+      type: 'horizontal' | 'vertical';
+      from: { x: number; y: number; width: number; height: number };
+      to: { x: number; y: number; width: number; height: number };
+      spacing: number;
+      label: string;
+    },
+    viewMatrix: mat3,
+    zoom: number
+  ): void {
+    const { from, to, type, label } = guide;
+
+    if (type === 'horizontal') {
+      const fromX = from.x + from.width;
+      const toX = to.x;
+      const centerY = (from.y + from.y + from.height) / 2;
+
+      // Draw horizontal line with arrows
+      this.renderDashedLine(fromX, centerY, toX, centerY, '#ff00ff', 1, viewMatrix);
+
+      // Draw arrows at ends
+      const arrowSize = 5 / zoom;
+      this.renderLine(fromX, centerY, fromX + arrowSize, centerY - arrowSize, '#ff00ff', 1, viewMatrix);
+      this.renderLine(fromX, centerY, fromX + arrowSize, centerY + arrowSize, '#ff00ff', 1, viewMatrix);
+      this.renderLine(toX, centerY, toX - arrowSize, centerY - arrowSize, '#ff00ff', 1, viewMatrix);
+      this.renderLine(toX, centerY, toX - arrowSize, centerY + arrowSize, '#ff00ff', 1, viewMatrix);
+
+      // Label
+      const labelX = (fromX + toX) / 2;
+      const labelY = centerY - 8 / zoom;
+      this.renderTextLabel(label, labelX, labelY, viewMatrix, zoom);
+    } else {
+      const fromY = from.y + from.height;
+      const toY = to.y;
+      const centerX = (from.x + from.x + from.width) / 2;
+
+      // Draw vertical line with arrows
+      this.renderDashedLine(centerX, fromY, centerX, toY, '#ff00ff', 1, viewMatrix);
+
+      // Draw arrows at ends
+      const arrowSize = 5 / zoom;
+      this.renderLine(centerX, fromY, centerX - arrowSize, fromY + arrowSize, '#ff00ff', 1, viewMatrix);
+      this.renderLine(centerX, fromY, centerX + arrowSize, fromY + arrowSize, '#ff00ff', 1, viewMatrix);
+      this.renderLine(centerX, toY, centerX - arrowSize, toY - arrowSize, '#ff00ff', 1, viewMatrix);
+      this.renderLine(centerX, toY, centerX + arrowSize, toY - arrowSize, '#ff00ff', 1, viewMatrix);
+
+      // Label
+      const labelX = centerX + 8 / zoom;
+      const labelY = (fromY + toY) / 2;
+      this.renderTextLabel(label, labelX, labelY, viewMatrix, zoom);
+    }
+  }
+
+  /**
+   * Render distance measurement (during drag)
+   */
+  renderDistanceMeasurement(
+    measurement: {
+      from: { x: number; y: number };
+      to: { x: number; y: number };
+      direction: 'horizontal' | 'vertical';
+      distance: number;
+      label: string;
+    },
+    viewMatrix: mat3,
+    zoom: number
+  ): void {
+    const { from, to, label } = measurement;
+
+    // Draw main line
+    this.renderLine(from.x, from.y, to.x, to.y, '#ff00ff', 1, viewMatrix);
+
+    // Draw end caps
+    const capSize = 4 / zoom;
+    if (measurement.direction === 'horizontal') {
+      this.renderLine(from.x, from.y - capSize, from.x, from.y + capSize, '#ff00ff', 1, viewMatrix);
+      this.renderLine(to.x, to.y - capSize, to.x, to.y + capSize, '#ff00ff', 1, viewMatrix);
+    } else {
+      this.renderLine(from.x - capSize, from.y, from.x + capSize, from.y, '#ff00ff', 1, viewMatrix);
+      this.renderLine(to.x - capSize, to.y, to.x + capSize, to.y, '#ff00ff', 1, viewMatrix);
+    }
+
+    // Label
+    const labelX = (from.x + to.x) / 2;
+    const labelY = (from.y + to.y) / 2;
+    this.renderTextLabel(label, labelX, labelY, viewMatrix, zoom);
+  }
+
+  /**
+   * Render dashed line (approximation using multiple segments)
+   */
+  private renderDashedLine(
+    x1: number,
+    y1: number,
+    x2: number,
+    y2: number,
+    color: string,
+    width: number,
+    viewMatrix: mat3
+  ): void {
+    const dashLength = 4;
+    const gapLength = 4;
+    const totalLength = Math.sqrt((x2 - x1) ** 2 + (y2 - y1) ** 2);
+    const dx = (x2 - x1) / totalLength;
+    const dy = (y2 - y1) / totalLength;
+
+    let currentLength = 0;
+    let isDash = true;
+
+    while (currentLength < totalLength) {
+      const segmentLength = isDash ? dashLength : gapLength;
+      const endLength = Math.min(currentLength + segmentLength, totalLength);
+
+      if (isDash) {
+        const sx = x1 + dx * currentLength;
+        const sy = y1 + dy * currentLength;
+        const ex = x1 + dx * endLength;
+        const ey = y1 + dy * endLength;
+        this.renderLine(sx, sy, ex, ey, color, width, viewMatrix);
+      }
+
+      currentLength = endLength;
+      isDash = !isDash;
+    }
+  }
+
+  /**
+   * Render margin visualization
+   */
+  renderMargin(
+    bounds: { x: number; y: number; width: number; height: number },
+    margin: { t: number; r: number; b: number; l: number },
+    viewMatrix: mat3,
+    zoom: number
+  ): void {
+    const color = 'rgba(255, 200, 100, 0.2)';
+    const borderColor = 'rgba(255, 150, 50, 0.5)';
+
+    // Top margin
+    if (margin.t > 0) {
+      this.renderRectangle(
+        bounds.x,
+        bounds.y - margin.t,
+        bounds.width,
+        margin.t,
+        color,
+        viewMatrix
+      );
+      this.renderDashedLine(
+        bounds.x,
+        bounds.y - margin.t,
+        bounds.x + bounds.width,
+        bounds.y - margin.t,
+        borderColor,
+        1,
+        viewMatrix
+      );
+    }
+
+    // Right margin
+    if (margin.r > 0) {
+      this.renderRectangle(
+        bounds.x + bounds.width,
+        bounds.y,
+        margin.r,
+        bounds.height,
+        color,
+        viewMatrix
+      );
+    }
+
+    // Bottom margin
+    if (margin.b > 0) {
+      this.renderRectangle(
+        bounds.x,
+        bounds.y + bounds.height,
+        bounds.width,
+        margin.b,
+        color,
+        viewMatrix
+      );
+    }
+
+    // Left margin
+    if (margin.l > 0) {
+      this.renderRectangle(
+        bounds.x - margin.l,
+        bounds.y,
+        margin.l,
+        bounds.height,
+        color,
+        viewMatrix
+      );
+    }
+  }
+
+  /**
+   * Render padding visualization
+   */
+  renderPadding(
+    bounds: { x: number; y: number; width: number; height: number },
+    padding: { t: number; r: number; b: number; l: number },
+    viewMatrix: mat3,
+    zoom: number
+  ): void {
+    const color = 'rgba(100, 200, 255, 0.2)';
+
+    // Top padding
+    if (padding.t > 0) {
+      this.renderRectangle(bounds.x, bounds.y, bounds.width, padding.t, color, viewMatrix);
+    }
+
+    // Right padding
+    if (padding.r > 0) {
+      this.renderRectangle(
+        bounds.x + bounds.width - padding.r,
+        bounds.y,
+        padding.r,
+        bounds.height,
+        color,
+        viewMatrix
+      );
+    }
+
+    // Bottom padding
+    if (padding.b > 0) {
+      this.renderRectangle(
+        bounds.x,
+        bounds.y + bounds.height - padding.b,
+        bounds.width,
+        padding.b,
+        color,
+        viewMatrix
+      );
+    }
+
+    // Left padding
+    if (padding.l > 0) {
+      this.renderRectangle(bounds.x, bounds.y, padding.l, bounds.height, color, viewMatrix);
+    }
+  }
+
+  /**
+   * Render text label (simplified - just a background for now)
+   */
+  private renderTextLabel(
+    text: string,
+    x: number,
+    y: number,
+    viewMatrix: mat3,
+    zoom: number
+  ): void {
+    // For now, just render a small background rectangle
+    // Proper text rendering would require a texture atlas
+    const width = text.length * 6 / zoom;
+    const height = 12 / zoom;
+    this.renderRectangle(x - width / 2, y, width, height, 'rgba(255, 0, 255, 0.8)', viewMatrix);
+  }
+
+  /**
+   * Parse RGBA color string
+   */
+  private parseColorRGBA(color: string): Float32Array {
+    if (color.startsWith('rgba(')) {
+      const match = color.match(/rgba?\((\d+),\s*(\d+),\s*(\d+),?\s*([\d.]+)?\)/);
+      if (match) {
+        const r = parseInt(match[1]) / 255;
+        const g = parseInt(match[2]) / 255;
+        const b = parseInt(match[3]) / 255;
+        const a = match[4] ? parseFloat(match[4]) : 1;
+        return new Float32Array([r, g, b, a]);
+      }
+    }
+    return this.parseColor(color);
   }
 
   private createRectangleVAO(): WebGLVertexArrayObject {
@@ -602,5 +1021,47 @@ export class WebGLRenderer {
         fragColor = vec4(u_color.rgb, u_color.a * alpha);
       }
     `;
+  }
+
+  private getLineVertexShader(): string {
+    return `#version 300 es
+      precision highp float;
+
+      layout(location = 0) in vec2 a_position;
+
+      uniform mat3 u_viewMatrix;
+      uniform vec2 u_viewport;
+
+      void main() {
+        vec3 pos = u_viewMatrix * vec3(a_position, 1.0);
+
+        // Convert to clip space
+        vec2 clipSpace = (pos.xy / u_viewport) * 2.0 - 1.0;
+        clipSpace.y = -clipSpace.y; // Flip Y for screen coordinates
+
+        gl_Position = vec4(clipSpace, 0.0, 1.0);
+      }
+    `;
+  }
+
+  private getLineFragmentShader(): string {
+    return `#version 300 es
+      precision highp float;
+
+      uniform vec4 u_color;
+      out vec4 fragColor;
+
+      void main() {
+        fragColor = u_color;
+      }
+    `;
+  }
+
+  private getTextVertexShader(): string {
+    return this.getRectangleVertexShader();
+  }
+
+  private getTextFragmentShader(): string {
+    return this.getRectangleFragmentShader();
   }
 }
