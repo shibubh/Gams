@@ -7,17 +7,14 @@ import { CameraController } from '../engine/camera';
 import { WasmAdapter } from '../engine/wasm/WasmAdapter';
 import { WebGLRenderer } from './webgl/WebGLRenderer';
 import { Canvas2DRenderer } from './canvas2d/Canvas2DRenderer';
-import { 
+import {
   calculateAlignmentGuides,
   calculateSpacingGuides,
-  calculateDistanceMeasurements,
-  type AlignmentGuide,
-  type SpacingGuide,
-  type DistanceMeasurement
+  calculateDistanceMeasurements
 } from './SmartGuides';
-import { 
+import {
   getMarginPaddingVisualization,
-  type MarginPaddingVisualization 
+  calculateDistanceGuides
 } from './VisualGuides';
 import type {
   SceneNode,
@@ -357,11 +354,12 @@ export class RenderEngine {
       }
     });
 
-    // Layer 3: Figma-style Smart Guides (only during drag/resize)
+    // Layer 3: Figma-style Smart Guides
+    // During drag/resize: show alignment and spacing guides
     if ((appState.isDragging || appState.isResizing) && appState.draggedNodes.size > 0 && this.scene) {
       const draggedId = Array.from(appState.draggedNodes)[0];
       const draggedNode = findNode(this.scene, draggedId);
-      
+
       if (draggedNode) {
         // Alignment guides (magenta lines when edges/centers align)
         const alignmentGuides = calculateAlignmentGuides(draggedNode, nodes);
@@ -377,6 +375,23 @@ export class RenderEngine {
 
         // Distance measurements (to nearest objects)
         const measurements = calculateDistanceMeasurements(draggedNode, nodes);
+        measurements.forEach(measurement => {
+          renderer.renderDistanceMeasurement(measurement, camera.viewMatrix, camera.zoom);
+        });
+      }
+    }
+
+    // When object is selected (not dragging): show distance from all sides
+    if (this.selectedNodes.size === 1 && !appState.isDragging && !appState.isResizing && this.scene) {
+      const selectedId = Array.from(this.selectedNodes)[0];
+      const selectedNode = findNode(this.scene, selectedId);
+
+      if (selectedNode) {
+        // Find parent/container bounds (smallest node that fully contains the selected node)
+        const parentBounds = this.findParentBounds(selectedNode, nodes);
+
+        // Calculate and render distance measurements from all sides
+        const measurements = calculateDistanceMeasurements(selectedNode, nodes, parentBounds);
         measurements.forEach(measurement => {
           renderer.renderDistanceMeasurement(measurement, camera.viewMatrix, camera.zoom);
         });
@@ -448,7 +463,7 @@ export class RenderEngine {
     if (this.selectedNodes.size === 1 && this.scene) {
       const selectedId = Array.from(this.selectedNodes)[0];
       const selectedNode = findNode(this.scene, selectedId);
-      
+
       if (selectedNode) {
         const guides = calculateDistanceGuides(selectedNode, nodes, 500);
         guides.forEach(guide => {
@@ -599,6 +614,51 @@ export class RenderEngine {
     }
   }
   
+  /**
+   * Find the parent/container bounds for a node
+   * Returns the bounds of the smallest node that fully contains the selected node
+   * Falls back to scene root bounds if no parent container found
+   */
+  private findParentBounds(
+    selectedNode: SceneNode,
+    allNodes: SceneNode[]
+  ): { x: number; y: number; width: number; height: number } | undefined {
+    const bounds = selectedNode.bounds;
+    let parentBounds: { x: number; y: number; width: number; height: number } | undefined;
+    let smallestArea = Infinity;
+
+    // Find the smallest container that fully contains the selected node
+    allNodes.forEach((node) => {
+      if (node.id === selectedNode.id) return;
+
+      const nb = node.bounds;
+      // Check if this node fully contains the selected node
+      if (nb.x <= bounds.x &&
+          nb.y <= bounds.y &&
+          nb.x + nb.width >= bounds.x + bounds.width &&
+          nb.y + nb.height >= bounds.y + bounds.height) {
+        const area = nb.width * nb.height;
+        // Find the smallest containing node (closest parent)
+        if (area < smallestArea) {
+          smallestArea = area;
+          parentBounds = { x: nb.x, y: nb.y, width: nb.width, height: nb.height };
+        }
+      }
+    });
+
+    // If no parent found but we have a scene, use scene root bounds
+    if (!parentBounds && this.scene && this.scene.id !== selectedNode.id) {
+      parentBounds = {
+        x: this.scene.bounds.x,
+        y: this.scene.bounds.y,
+        width: this.scene.bounds.width,
+        height: this.scene.bounds.height,
+      };
+    }
+
+    return parentBounds;
+  }
+
   /**
    * Dispatch performance metrics event
    */

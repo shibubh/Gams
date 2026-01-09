@@ -3,8 +3,8 @@
  * Shows distances between selected objects and nearby objects
  */
 
-import type { SceneNode, Bounds, NodeId } from '../../types/core';
-import type { NodeStyleExtended } from '../../types/styles';
+import type { SceneNode, Bounds, NodeId } from '../types/core';
+import type { NodeStyleExtended } from '../types/styles';
 
 export interface DistanceGuide {
   from: Bounds;

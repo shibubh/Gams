@@ -3,7 +3,7 @@
  * Shows alignment and spacing guides during interactions
  */
 
-import type { SceneNode, Bounds, Point } from '../../types/core';
+import type { SceneNode, Bounds, Point } from '../types/core';
 
 export interface AlignmentGuide {
   type: 'vertical' | 'horizontal';
@@ -139,8 +139,7 @@ function addAlignment(
  */
 export function calculateSpacingGuides(
   movingNode: SceneNode,
-  allNodes: SceneNode[],
-  threshold: number = 2
+  allNodes: SceneNode[]
 ): SpacingGuide[] {
   const guides: SpacingGuide[] = [];
   const bounds = movingNode.bounds;
@@ -243,12 +242,16 @@ export function calculateSpacingGuides(
 }
 
 /**
- * Calculate distance measurements during drag
- * Shows distance from moving object to nearest objects
+ * Calculate distance measurements during drag or selection
+ * Shows distance from object to nearest siblings or parent bounds
+ * @param movingNode - The selected/moving node
+ * @param allNodes - All visible nodes (siblings)
+ * @param parentBounds - Optional parent container bounds (for distance to parent edges)
  */
 export function calculateDistanceMeasurements(
   movingNode: SceneNode,
-  allNodes: SceneNode[]
+  allNodes: SceneNode[],
+  parentBounds?: Bounds
 ): DistanceMeasurement[] {
   const measurements: DistanceMeasurement[] = [];
   const bounds = movingNode.bounds;
@@ -258,37 +261,45 @@ export function calculateDistanceMeasurements(
   let nearestTop: { node: SceneNode; distance: number } | null = null;
   let nearestBottom: { node: SceneNode; distance: number } | null = null;
 
+  // Find nearest sibling objects on each side
   allNodes.forEach((node) => {
     if (node.id === movingNode.id) return;
+    // Skip parent/container nodes (frames that contain the selected node)
+    if (node.bounds.x <= bounds.x &&
+        node.bounds.y <= bounds.y &&
+        node.bounds.x + node.bounds.width >= bounds.x + bounds.width &&
+        node.bounds.y + node.bounds.height >= bounds.y + bounds.height) {
+      return;
+    }
 
     const nb = node.bounds;
 
-    // Check left
-    if (nb.x + nb.width < bounds.x) {
+    // Check left - object is to the left of selected
+    if (nb.x + nb.width <= bounds.x) {
       const distance = bounds.x - (nb.x + nb.width);
       if (!nearestLeft || distance < nearestLeft.distance) {
         nearestLeft = { node, distance };
       }
     }
 
-    // Check right
-    if (nb.x > bounds.x + bounds.width) {
+    // Check right - object is to the right of selected
+    if (nb.x >= bounds.x + bounds.width) {
       const distance = nb.x - (bounds.x + bounds.width);
       if (!nearestRight || distance < nearestRight.distance) {
         nearestRight = { node, distance };
       }
     }
 
-    // Check top
-    if (nb.y + nb.height < bounds.y) {
+    // Check top - object is above selected
+    if (nb.y + nb.height <= bounds.y) {
       const distance = bounds.y - (nb.y + nb.height);
       if (!nearestTop || distance < nearestTop.distance) {
         nearestTop = { node, distance };
       }
     }
 
-    // Check bottom
-    if (nb.y > bounds.y + bounds.height) {
+    // Check bottom - object is below selected
+    if (nb.y >= bounds.y + bounds.height) {
       const distance = nb.y - (bounds.y + bounds.height);
       if (!nearestBottom || distance < nearestBottom.distance) {
         nearestBottom = { node, distance };
@@ -296,11 +307,12 @@ export function calculateDistanceMeasurements(
     }
   });
 
-  // Add measurements for nearest objects
+  // Add measurements for nearest objects or parent bounds
   const centerY = bounds.y + bounds.height / 2;
   const centerX = bounds.x + bounds.width / 2;
 
-  if (nearestLeft && nearestLeft.distance < 200) {
+  // Left side - show distance to nearest sibling or parent
+  if (nearestLeft) {
     measurements.push({
       from: { x: bounds.x, y: centerY },
       to: { x: nearestLeft.node.bounds.x + nearestLeft.node.bounds.width, y: centerY },
@@ -308,9 +320,21 @@ export function calculateDistanceMeasurements(
       distance: nearestLeft.distance,
       label: `${Math.round(nearestLeft.distance)}`,
     });
+  } else if (parentBounds) {
+    const distToParentLeft = bounds.x - parentBounds.x;
+    if (distToParentLeft > 0) {
+      measurements.push({
+        from: { x: bounds.x, y: centerY },
+        to: { x: parentBounds.x, y: centerY },
+        direction: 'horizontal',
+        distance: distToParentLeft,
+        label: `${Math.round(distToParentLeft)}`,
+      });
+    }
   }
 
-  if (nearestRight && nearestRight.distance < 200) {
+  // Right side - show distance to nearest sibling or parent
+  if (nearestRight) {
     measurements.push({
       from: { x: bounds.x + bounds.width, y: centerY },
       to: { x: nearestRight.node.bounds.x, y: centerY },
@@ -318,9 +342,21 @@ export function calculateDistanceMeasurements(
       distance: nearestRight.distance,
       label: `${Math.round(nearestRight.distance)}`,
     });
+  } else if (parentBounds) {
+    const distToParentRight = (parentBounds.x + parentBounds.width) - (bounds.x + bounds.width);
+    if (distToParentRight > 0) {
+      measurements.push({
+        from: { x: bounds.x + bounds.width, y: centerY },
+        to: { x: parentBounds.x + parentBounds.width, y: centerY },
+        direction: 'horizontal',
+        distance: distToParentRight,
+        label: `${Math.round(distToParentRight)}`,
+      });
+    }
   }
 
-  if (nearestTop && nearestTop.distance < 200) {
+  // Top side - show distance to nearest sibling or parent
+  if (nearestTop) {
     measurements.push({
       from: { x: centerX, y: bounds.y },
       to: { x: centerX, y: nearestTop.node.bounds.y + nearestTop.node.bounds.height },
@@ -328,9 +364,21 @@ export function calculateDistanceMeasurements(
       distance: nearestTop.distance,
       label: `${Math.round(nearestTop.distance)}`,
     });
+  } else if (parentBounds) {
+    const distToParentTop = bounds.y - parentBounds.y;
+    if (distToParentTop > 0) {
+      measurements.push({
+        from: { x: centerX, y: bounds.y },
+        to: { x: centerX, y: parentBounds.y },
+        direction: 'vertical',
+        distance: distToParentTop,
+        label: `${Math.round(distToParentTop)}`,
+      });
+    }
   }
 
-  if (nearestBottom && nearestBottom.distance < 200) {
+  // Bottom side - show distance to nearest sibling or parent
+  if (nearestBottom) {
     measurements.push({
       from: { x: centerX, y: bounds.y + bounds.height },
       to: { x: centerX, y: nearestBottom.node.bounds.y },
@@ -338,6 +386,17 @@ export function calculateDistanceMeasurements(
       distance: nearestBottom.distance,
       label: `${Math.round(nearestBottom.distance)}`,
     });
+  } else if (parentBounds) {
+    const distToParentBottom = (parentBounds.y + parentBounds.height) - (bounds.y + bounds.height);
+    if (distToParentBottom > 0) {
+      measurements.push({
+        from: { x: centerX, y: bounds.y + bounds.height },
+        to: { x: centerX, y: parentBounds.y + parentBounds.height },
+        direction: 'vertical',
+        distance: distToParentBottom,
+        label: `${Math.round(distToParentBottom)}`,
+      });
+    }
   }
 
   return measurements;
