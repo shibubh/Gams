@@ -4,7 +4,7 @@
 
 import type { PointerState, Point, Bounds, ToolType } from '../types';
 import type { Tool, ToolContext } from './Tool';
-import { createEllipse, addChild, findNode } from '../engine/scene/sceneGraph';
+import { createEllipse, addChild, findNode, updateNode } from '../engine/scene/sceneGraph';
 
 export class EllipseTool implements Tool {
   readonly type: ToolType = 'ELLIPSE';
@@ -32,13 +32,13 @@ export class EllipseTool implements Tool {
 
     // Check if there's an active frame to draw in
     const selectedNodes = Array.from(this.context.getSelection());
-    let targetFrame = scene;
+    let targetFrameId = scene.id;
     
     // If a frame is selected, draw inside it
     if (selectedNodes.length > 0) {
       const selectedNode = findNode(scene, selectedNodes[0]);
       if (selectedNode && selectedNode.type === 'FRAME') {
-        targetFrame = selectedNode;
+        targetFrameId = selectedNode.id;
       }
     }
 
@@ -51,8 +51,9 @@ export class EllipseTool implements Tool {
     };
 
     if (this.currentNodeId) {
-      // Update existing ellipse
-      // TODO: Implement node update in scene
+      // Update existing ellipse bounds
+      const newScene = updateNode(scene, this.currentNodeId, { bounds });
+      this.context.updateScene(newScene);
     } else {
       // Create new ellipse
       const ellipse = createEllipse('Ellipse', bounds, {
@@ -61,7 +62,7 @@ export class EllipseTool implements Tool {
       });
 
       this.currentNodeId = ellipse.id;
-      const newScene = addChild(scene, targetFrame.id, ellipse);
+      const newScene = addChild(scene, targetFrameId, ellipse);
       this.context.updateScene(newScene);
     }
 

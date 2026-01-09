@@ -5,7 +5,7 @@
 
 import type { PointerState, Point, Bounds, ToolType } from '../types';
 import type { Tool, ToolContext } from './Tool';
-import { createFrame, addChild } from '../engine/scene/sceneGraph';
+import { createFrame, addChild, updateNode } from '../engine/scene/sceneGraph';
 
 export class FrameTool implements Tool {
   readonly type: ToolType = 'FRAME';
@@ -40,13 +40,14 @@ export class FrameTool implements Tool {
     };
 
     if (this.currentNodeId) {
-      // Update existing frame
-      // TODO: Implement node update in scene
+      // Update existing frame bounds
+      const newScene = updateNode(scene, this.currentNodeId, { bounds });
+      this.context.updateScene(newScene);
     } else {
       // Create new frame
       const frame = createFrame('Frame', bounds, {
         fill: { type: 'solid', color: '#ffffff', opacity: 1 },
-        stroke: { color: '#e0e0e0', width: 1 },
+        stroke: { color: '#3b82f6', width: 2 },
       });
 
       this.currentNodeId = frame.id;

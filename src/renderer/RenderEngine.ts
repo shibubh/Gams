@@ -275,6 +275,20 @@ export class RenderEngine {
         );
         break;
       }
+      case NodeType.Ellipse: {
+        // For now, render ellipse as a rectangle in WebGL
+        // TODO: Implement proper ellipse rendering with shaders
+        const color = node.style.fill?.color || '#60a5fa';
+        renderer.renderRectangle(
+          node.bounds.x,
+          node.bounds.y,
+          node.bounds.width,
+          node.bounds.height,
+          color,
+          viewMatrix
+        );
+        break;
+      }
       // Add other node types here
     }
   }
