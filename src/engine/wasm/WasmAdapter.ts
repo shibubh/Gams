@@ -326,7 +326,7 @@ export class WasmAdapter {
     if (!this.core) throw new Error('[WASM] Not initialized');
 
     const movingHandle = this.idRegistry.getHandle(movingNodeId);
-    const visibleHandles = visibleNodeIds.map(id => this.idRegistry.getHandle(id));
+    const visibleHandles = new Uint32Array(visibleNodeIds.map(id => this.idRegistry.getHandle(id)));
 
     const guides = this.core.calculate_alignment_guides(
       movingHandle,
@@ -358,7 +358,7 @@ export class WasmAdapter {
     if (!this.core) throw new Error('[WASM] Not initialized');
 
     const movingHandle = this.idRegistry.getHandle(movingNodeId);
-    const visibleHandles = visibleNodeIds.map(id => this.idRegistry.getHandle(id));
+    const visibleHandles = new Uint32Array(visibleNodeIds.map(id => this.idRegistry.getHandle(id)));
 
     const guides = this.core.calculate_spacing_guides(movingHandle, visibleHandles);
 
@@ -392,7 +392,7 @@ export class WasmAdapter {
     if (!this.core) throw new Error('[WASM] Not initialized');
 
     const movingHandle = this.idRegistry.getHandle(movingNodeId);
-    const visibleHandles = visibleNodeIds.map(id => this.idRegistry.getHandle(id));
+    const visibleHandles = new Uint32Array(visibleNodeIds.map(id => this.idRegistry.getHandle(id)));
 
     const measurements = this.core.calculate_distance_measurements(
       movingHandle,
