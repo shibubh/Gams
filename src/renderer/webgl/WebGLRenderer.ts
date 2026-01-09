@@ -611,23 +611,53 @@ export class WebGLRenderer {
   ): void {
     const { from, to, label } = measurement;
 
+    // Colors
+    const lineColor = '#ff00ff';
+    const bgColor = 'rgba(220, 220, 220, 0.3)'; // Light grey background
+    const hatchingColor = 'rgba(200, 200, 200, 0.5)'; // Grey hatching
+    const hatchingSpacing = 6;
+
+    // Calculate the background rectangle dimensions
+    const rectPadding = 3 / zoom;
+    let rectX: number, rectY: number, rectWidth: number, rectHeight: number;
+
+    if (measurement.direction === 'horizontal') {
+      // For horizontal measurements, create a thin horizontal rectangle
+      rectX = Math.min(from.x, to.x);
+      rectY = from.y - rectPadding;
+      rectWidth = Math.abs(to.x - from.x);
+      rectHeight = rectPadding * 2;
+    } else {
+      // For vertical measurements, create a thin vertical rectangle
+      rectX = from.x - rectPadding;
+      rectY = Math.min(from.y, to.y);
+      rectWidth = rectPadding * 2;
+      rectHeight = Math.abs(to.y - from.y);
+    }
+
+    // Draw light grey background
+    this.renderRectangle(rectX, rectY, rectWidth, rectHeight, bgColor, viewMatrix);
+
+    // Draw diagonal hatching pattern
+    this.renderHatchingPattern(rectX, rectY, rectWidth, rectHeight, hatchingColor, hatchingSpacing, viewMatrix, zoom);
+
     // Draw main line
-    this.renderLine(from.x, from.y, to.x, to.y, '#ff00ff', 1, viewMatrix);
+    this.renderLine(from.x, from.y, to.x, to.y, lineColor, 1, viewMatrix);
 
     // Draw end caps
     const capSize = 4 / zoom;
     if (measurement.direction === 'horizontal') {
-      this.renderLine(from.x, from.y - capSize, from.x, from.y + capSize, '#ff00ff', 1, viewMatrix);
-      this.renderLine(to.x, to.y - capSize, to.x, to.y + capSize, '#ff00ff', 1, viewMatrix);
+      this.renderLine(from.x, from.y - capSize, from.x, from.y + capSize, lineColor, 1, viewMatrix);
+      this.renderLine(to.x, to.y - capSize, to.x, to.y + capSize, lineColor, 1, viewMatrix);
     } else {
-      this.renderLine(from.x - capSize, from.y, from.x + capSize, from.y, '#ff00ff', 1, viewMatrix);
-      this.renderLine(to.x - capSize, to.y, to.x + capSize, to.y, '#ff00ff', 1, viewMatrix);
+      this.renderLine(from.x - capSize, from.y, from.x + capSize, from.y, lineColor, 1, viewMatrix);
+      this.renderLine(to.x - capSize, to.y, to.x + capSize, to.y, lineColor, 1, viewMatrix);
     }
 
-    // Label
+    // Label with light grey background
     const labelX = (from.x + to.x) / 2;
     const labelY = (from.y + to.y) / 2;
-    this.renderTextLabel(label, labelX, labelY, viewMatrix, zoom);
+    this.renderTextLabelWithBackground(label, labelX, labelY, viewMatrix, zoom, 'rgba(220, 220, 220, 0.95)', '#000000');
   }
 
   /**
@@ -874,20 +904,35 @@ export class WebGLRenderer {
     viewMatrix: mat3,
     zoom: number
   ): void {
-    // Render white background with border for label
+    this.renderTextLabelWithBackground(text, x, y, viewMatrix, zoom, 'rgba(255, 255, 255, 0.95)', '#333333');
+  }
+
+  /**
+   * Render text label with custom background and border colors
+   */
+  private renderTextLabelWithBackground(
+    text: string,
+    x: number,
+    y: number,
+    viewMatrix: mat3,
+    zoom: number,
+    backgroundColor: string = 'rgba(255, 255, 255, 0.95)',
+    borderColor: string = '#333333'
+  ): void {
+    // Render background with border for label
     const padding = 4 / zoom;
     const width = text.length * 7 / zoom + padding * 2;
     const height = 14 / zoom + padding;
     const labelX = x - width / 2;
     const labelY = y - height / 2;
 
-    // White background
-    this.renderRectangle(labelX, labelY, width, height, 'rgba(255, 255, 255, 0.95)', viewMatrix);
-    // Dark border
-    this.renderLine(labelX, labelY, labelX + width, labelY, '#333333', 1, viewMatrix);
-    this.renderLine(labelX + width, labelY, labelX + width, labelY + height, '#333333', 1, viewMatrix);
-    this.renderLine(labelX + width, labelY + height, labelX, labelY + height, '#333333', 1, viewMatrix);
-    this.renderLine(labelX, labelY + height, labelX, labelY, '#333333', 1, viewMatrix);
+    // Background
+    this.renderRectangle(labelX, labelY, width, height, backgroundColor, viewMatrix);
+    // Border
+    this.renderLine(labelX, labelY, labelX + width, labelY, borderColor, 1, viewMatrix);
+    this.renderLine(labelX + width, labelY, labelX + width, labelY + height, borderColor, 1, viewMatrix);
+    this.renderLine(labelX + width, labelY + height, labelX, labelY + height, borderColor, 1, viewMatrix);
+    this.renderLine(labelX, labelY + height, labelX, labelY, borderColor, 1, viewMatrix);
   }
 
   /**
