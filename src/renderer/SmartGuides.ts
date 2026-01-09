@@ -311,6 +311,10 @@ export function calculateDistanceMeasurements(
   const centerY = bounds.y + bounds.height / 2;
   const centerX = bounds.x + bounds.width / 2;
 
+  // Note: Type assertions below are required due to TypeScript limitation with control flow analysis
+  // When variables are reassigned in forEach callbacks, TypeScript fails to narrow types correctly
+  // even after null checks. See: https://github.com/microsoft/TypeScript/issues/9998
+
   // Left side - show distance to nearest sibling or parent
   if (nearestLeft !== null) {
     const leftMeasure = nearestLeft as { node: SceneNode; distance: number };
