@@ -182,6 +182,7 @@ export class WebGLRenderer {
     // Set uniforms
     const uViewMatrix = gl.getUniformLocation(program, 'u_viewMatrix');
     const uModelMatrix = gl.getUniformLocation(program, 'u_modelMatrix');
+    const uViewport = gl.getUniformLocation(program, 'u_viewport');
     const uColor = gl.getUniformLocation(program, 'u_color');
 
     // Create model matrix for this rectangle
@@ -191,6 +192,7 @@ export class WebGLRenderer {
 
     gl.uniformMatrix3fv(uViewMatrix, false, viewMatrix);
     gl.uniformMatrix3fv(uModelMatrix, false, modelMatrix);
+    gl.uniform2f(uViewport, this.viewport.width, this.viewport.height);
 
     // Parse color
     const rgba = this.parseColor(color);
@@ -232,6 +234,7 @@ export class WebGLRenderer {
     // Set uniforms
     const uViewMatrix = gl.getUniformLocation(program, 'u_viewMatrix');
     const uModelMatrix = gl.getUniformLocation(program, 'u_modelMatrix');
+    const uViewport = gl.getUniformLocation(program, 'u_viewport');
     const uColor = gl.getUniformLocation(program, 'u_color');
 
     const modelMatrix = mat3.create();
@@ -240,6 +243,7 @@ export class WebGLRenderer {
 
     gl.uniformMatrix3fv(uViewMatrix, false, viewMatrix);
     gl.uniformMatrix3fv(uModelMatrix, false, modelMatrix);
+    gl.uniform2f(uViewport, this.viewport.width, this.viewport.height);
     gl.uniform4fv(uColor, [0.2, 0.5, 1.0, 1.0]); // Blue selection
 
     // Draw outline
@@ -318,14 +322,15 @@ export class WebGLRenderer {
 
       uniform mat3 u_viewMatrix;
       uniform mat3 u_modelMatrix;
+      uniform vec2 u_viewport;
 
       void main() {
         vec3 pos = u_viewMatrix * u_modelMatrix * vec3(a_position, 1.0);
-        
+
         // Convert to clip space
-        vec2 clipSpace = (pos.xy / vec2(${this.viewport.width}.0, ${this.viewport.height}.0)) * 2.0 - 1.0;
+        vec2 clipSpace = (pos.xy / u_viewport) * 2.0 - 1.0;
         clipSpace.y = -clipSpace.y; // Flip Y for screen coordinates
-        
+
         gl_Position = vec4(clipSpace, 0.0, 1.0);
       }
     `;

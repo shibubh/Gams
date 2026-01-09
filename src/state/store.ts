@@ -39,7 +39,9 @@ export interface AppState {
 export const useAppStore = create<AppState>((set) => ({
   // Initial state
   document: null,
-  scene: createFrame('Root', { x: 0, y: 0, width: 1920, height: 1080 }),
+  scene: createFrame('Root', { x: 0, y: 0, width: 10000, height: 10000 }, {
+    visible: false, // Hide the root frame so it doesn't render
+  }),
   selectedNodes: new Set(),
   hoveredNode: null,
   currentTool: 'SELECT' as ToolType,

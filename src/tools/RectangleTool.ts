@@ -4,7 +4,7 @@
 
 import type { PointerState, Point, Bounds, ToolType } from '../types';
 import type { Tool, ToolContext } from './Tool';
-import { createRectangle, addChild } from '../engine/scene/sceneGraph';
+import { createRectangle, addChild, updateNode } from '../engine/scene/sceneGraph';
 
 export class RectangleTool implements Tool {
   readonly type: ToolType = 'RECTANGLE';
@@ -40,7 +40,8 @@ export class RectangleTool implements Tool {
 
     if (this.currentNodeId) {
       // Update existing rectangle
-      // TODO: Implement node update in scene
+      const newScene = updateNode(scene, this.currentNodeId, { bounds });
+      this.context.updateScene(newScene);
     } else {
       // Create new rectangle
       const rect = createRectangle('Rectangle', bounds, {

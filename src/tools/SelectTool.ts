@@ -4,7 +4,7 @@
 
 import type { PointerState, Point, ToolType } from '../types';
 import type { Tool, ToolContext } from './Tool';
-import { getNodesAtPoint } from '../engine/scene/sceneGraph';
+import { getNodesAtPoint, updateNode, findNode } from '../engine/scene/sceneGraph';
 
 export class SelectTool implements Tool {
   readonly type: ToolType = 'SELECT';
@@ -67,12 +67,28 @@ export class SelectTool implements Tool {
     const scene = this.context.getScene();
     if (!scene) return;
 
-    // Update dragged nodes
-    // TODO: Implement immutable node position updates
-    // const deltaX = state.worldPosition.x - this.dragStart.x;
-    // const deltaY = state.worldPosition.y - this.dragStart.y;
-    // This would update each selected node's position
+    // Calculate delta movement in world space
+    const deltaX = state.worldPosition.x - this.dragStart.x;
+    const deltaY = state.worldPosition.y - this.dragStart.y;
 
+    // Update each selected node's position
+    let updatedScene = scene;
+    this.draggedNodeIds.forEach((nodeId) => {
+      // Get the current node to read its bounds
+      const currentNode = findNode(updatedScene, nodeId);
+      if (currentNode) {
+        // Update the node's bounds with new position
+        const newBounds = {
+          x: currentNode.bounds.x + deltaX,
+          y: currentNode.bounds.y + deltaY,
+          width: currentNode.bounds.width,
+          height: currentNode.bounds.height,
+        };
+        updatedScene = updateNode(updatedScene, nodeId, { bounds: newBounds });
+      }
+    });
+
+    this.context.updateScene(updatedScene);
     this.dragStart = state.worldPosition;
     this.context.markDirty();
   }
