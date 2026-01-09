@@ -361,6 +361,9 @@ export class RenderEngine {
       const draggedNode = findNode(this.scene, draggedId);
 
       if (draggedNode) {
+        // Get all nodes from scene to find parent (not just visible nodes)
+        const allNodes = collectAllNodes(this.scene);
+        
         // Alignment guides (magenta lines when edges/centers align)
         const alignmentGuides = calculateAlignmentGuides(draggedNode, nodes);
         alignmentGuides.forEach(guide => {
@@ -373,8 +376,9 @@ export class RenderEngine {
           renderer.renderSpacingGuide(guide, camera.viewMatrix, camera.zoom);
         });
 
-        // Distance measurements (to nearest objects)
-        const measurements = calculateDistanceMeasurements(draggedNode, nodes);
+        // Distance measurements (to nearest objects or parent bounds)
+        const parentBounds = this.findParentBounds(draggedNode, allNodes);
+        const measurements = calculateDistanceMeasurements(draggedNode, nodes, parentBounds);
         measurements.forEach(measurement => {
           renderer.renderDistanceMeasurement(measurement, camera.viewMatrix, camera.zoom);
         });
@@ -387,8 +391,11 @@ export class RenderEngine {
       const selectedNode = findNode(this.scene, selectedId);
 
       if (selectedNode) {
+        // Get all nodes from scene to find parent (not just visible nodes)
+        const allNodes = collectAllNodes(this.scene);
+        
         // Find parent/container bounds (smallest node that fully contains the selected node)
-        const parentBounds = this.findParentBounds(selectedNode, nodes);
+        const parentBounds = this.findParentBounds(selectedNode, allNodes);
 
         // Calculate and render distance measurements from all sides
         const measurements = calculateDistanceMeasurements(selectedNode, nodes, parentBounds);
