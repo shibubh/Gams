@@ -8,9 +8,15 @@ import { WasmAdapter } from '../engine/wasm/WasmAdapter';
 import { WebGLRenderer } from './webgl/WebGLRenderer';
 import { Canvas2DRenderer } from './canvas2d/Canvas2DRenderer';
 import { 
-  calculateDistanceGuides, 
+  calculateAlignmentGuides,
+  calculateSpacingGuides,
+  calculateDistanceMeasurements,
+  type AlignmentGuide,
+  type SpacingGuide,
+  type DistanceMeasurement
+} from './SmartGuides';
+import { 
   getMarginPaddingVisualization,
-  type DistanceGuide,
   type MarginPaddingVisualization 
 } from './VisualGuides';
 import type {
@@ -22,6 +28,7 @@ import type {
 import { NodeType } from '../types/core';
 import { collectAllNodes, findNode } from '../engine/scene/sceneGraph';
 import type { NodeStyleExtended } from '../types/styles';
+import { useAppStore } from '../state/store';
 
 export interface RenderEngineOptions {
   preferWebGL?: boolean;
@@ -316,6 +323,7 @@ export class RenderEngine {
   private renderWebGL(nodes: SceneNode[]): void {
     const renderer = this.renderer as WebGLRenderer;
     const camera = this.camera.getCamera();
+    const appState = useAppStore.getState();
 
     // Layer 0: Grid
     renderer.renderGrid(camera.viewMatrix, camera.zoom);
@@ -335,37 +343,52 @@ export class RenderEngine {
           node.bounds.height,
           camera.viewMatrix
         );
-        // Render resize handles
-        renderer.renderResizeHandles(
-          node.bounds.x,
-          node.bounds.y,
-          node.bounds.width,
-          node.bounds.height,
-          camera.viewMatrix,
-          camera.zoom
-        );
+        // Render resize handles (only when not dragging)
+        if (!appState.isDragging) {
+          renderer.renderResizeHandles(
+            node.bounds.x,
+            node.bounds.y,
+            node.bounds.width,
+            node.bounds.height,
+            camera.viewMatrix,
+            camera.zoom
+          );
+        }
       }
     });
 
-    // Layer 3: Visual guides (distance measurements)
-    if (this.selectedNodes.size === 1 && this.scene) {
+    // Layer 3: Figma-style Smart Guides (only during drag/resize)
+    if ((appState.isDragging || appState.isResizing) && appState.draggedNodes.size > 0 && this.scene) {
+      const draggedId = Array.from(appState.draggedNodes)[0];
+      const draggedNode = findNode(this.scene, draggedId);
+      
+      if (draggedNode) {
+        // Alignment guides (magenta lines when edges/centers align)
+        const alignmentGuides = calculateAlignmentGuides(draggedNode, nodes);
+        alignmentGuides.forEach(guide => {
+          renderer.renderAlignmentGuide(guide, camera.viewMatrix, camera.zoom);
+        });
+
+        // Spacing guides (show when spacing is equal)
+        const spacingGuides = calculateSpacingGuides(draggedNode, nodes);
+        spacingGuides.forEach(guide => {
+          renderer.renderSpacingGuide(guide, camera.viewMatrix, camera.zoom);
+        });
+
+        // Distance measurements (to nearest objects)
+        const measurements = calculateDistanceMeasurements(draggedNode, nodes);
+        measurements.forEach(measurement => {
+          renderer.renderDistanceMeasurement(measurement, camera.viewMatrix, camera.zoom);
+        });
+      }
+    }
+
+    // Layer 4: Margin/Padding visualization (only when selected and not dragging)
+    if (this.selectedNodes.size === 1 && !appState.isDragging && this.scene) {
       const selectedId = Array.from(this.selectedNodes)[0];
       const selectedNode = findNode(this.scene, selectedId);
       
       if (selectedNode) {
-        const guides = calculateDistanceGuides(selectedNode, nodes, 500);
-        guides.forEach(guide => {
-          renderer.renderDistanceGuide(
-            guide.from,
-            guide.to,
-            guide.direction,
-            guide.label,
-            camera.viewMatrix,
-            camera.zoom
-          );
-        });
-
-        // Render margin/padding visualization
         const mpViz = getMarginPaddingVisualization(
           selectedNode,
           selectedNode.style as unknown as NodeStyleExtended

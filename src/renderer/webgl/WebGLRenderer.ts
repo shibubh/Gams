@@ -497,49 +497,141 @@ export class WebGLRenderer {
   }
 
   /**
-   * Render distance guide
+   * Render alignment guide (Figma-style magenta line)
    */
-  renderDistanceGuide(
-    fromBounds: { x: number; y: number; width: number; height: number },
-    toBounds: { x: number; y: number; width: number; height: number },
-    direction: 'horizontal' | 'vertical',
-    label: string,
+  renderAlignmentGuide(
+    guide: { type: 'vertical' | 'horizontal'; position: number },
     viewMatrix: mat3,
     zoom: number
   ): void {
-    if (direction === 'horizontal') {
-      const fromX = fromBounds.x + fromBounds.width;
-      const toX = toBounds.x;
-      const centerY = (fromBounds.y + fromBounds.y + fromBounds.height) / 2;
+    const { gl } = this;
+    const width = this.viewport.width / zoom;
+    const height = this.viewport.height / zoom;
 
-      // Main line
+    // Calculate world bounds from view matrix
+    const invView = mat3.create();
+    mat3.invert(invView, viewMatrix);
+    
+    const topLeft = vec2.fromValues(0, 0);
+    const bottomRight = vec2.fromValues(this.viewport.width, this.viewport.height);
+    vec2.transformMat3(topLeft, topLeft, invView);
+    vec2.transformMat3(bottomRight, bottomRight, invView);
+
+    if (guide.type === 'vertical') {
+      // Draw vertical line at guide.position
+      this.renderLine(
+        guide.position,
+        topLeft[1],
+        guide.position,
+        bottomRight[1],
+        '#ff00ff', // Magenta like Figma
+        2,
+        viewMatrix
+      );
+    } else {
+      // Draw horizontal line at guide.position
+      this.renderLine(
+        topLeft[0],
+        guide.position,
+        bottomRight[0],
+        guide.position,
+        '#ff00ff', // Magenta like Figma
+        2,
+        viewMatrix
+      );
+    }
+  }
+
+  /**
+   * Render spacing guide (equal spacing indicator)
+   */
+  renderSpacingGuide(
+    guide: {
+      type: 'horizontal' | 'vertical';
+      from: { x: number; y: number; width: number; height: number };
+      to: { x: number; y: number; width: number; height: number };
+      spacing: number;
+      label: string;
+    },
+    viewMatrix: mat3,
+    zoom: number
+  ): void {
+    const { from, to, type, label } = guide;
+
+    if (type === 'horizontal') {
+      const fromX = from.x + from.width;
+      const toX = to.x;
+      const centerY = (from.y + from.y + from.height) / 2;
+
+      // Draw horizontal line with arrows
       this.renderDashedLine(fromX, centerY, toX, centerY, '#ff00ff', 1, viewMatrix);
 
-      // End caps
-      this.renderLine(fromX, centerY - 5 / zoom, fromX, centerY + 5 / zoom, '#ff00ff', 1, viewMatrix);
-      this.renderLine(toX, centerY - 5 / zoom, toX, centerY + 5 / zoom, '#ff00ff', 1, viewMatrix);
+      // Draw arrows at ends
+      const arrowSize = 5 / zoom;
+      this.renderLine(fromX, centerY, fromX + arrowSize, centerY - arrowSize, '#ff00ff', 1, viewMatrix);
+      this.renderLine(fromX, centerY, fromX + arrowSize, centerY + arrowSize, '#ff00ff', 1, viewMatrix);
+      this.renderLine(toX, centerY, toX - arrowSize, centerY - arrowSize, '#ff00ff', 1, viewMatrix);
+      this.renderLine(toX, centerY, toX - arrowSize, centerY + arrowSize, '#ff00ff', 1, viewMatrix);
 
-      // Label (rendered as a small rectangle for now - proper text would need texture atlas)
+      // Label
       const labelX = (fromX + toX) / 2;
       const labelY = centerY - 8 / zoom;
       this.renderTextLabel(label, labelX, labelY, viewMatrix, zoom);
     } else {
-      const fromY = fromBounds.y + fromBounds.height;
-      const toY = toBounds.y;
-      const centerX = (fromBounds.x + fromBounds.x + fromBounds.width) / 2;
+      const fromY = from.y + from.height;
+      const toY = to.y;
+      const centerX = (from.x + from.x + from.width) / 2;
 
-      // Main line
+      // Draw vertical line with arrows
       this.renderDashedLine(centerX, fromY, centerX, toY, '#ff00ff', 1, viewMatrix);
 
-      // End caps
-      this.renderLine(centerX - 5 / zoom, fromY, centerX + 5 / zoom, fromY, '#ff00ff', 1, viewMatrix);
-      this.renderLine(centerX - 5 / zoom, toY, centerX + 5 / zoom, toY, '#ff00ff', 1, viewMatrix);
+      // Draw arrows at ends
+      const arrowSize = 5 / zoom;
+      this.renderLine(centerX, fromY, centerX - arrowSize, fromY + arrowSize, '#ff00ff', 1, viewMatrix);
+      this.renderLine(centerX, fromY, centerX + arrowSize, fromY + arrowSize, '#ff00ff', 1, viewMatrix);
+      this.renderLine(centerX, toY, centerX - arrowSize, toY - arrowSize, '#ff00ff', 1, viewMatrix);
+      this.renderLine(centerX, toY, centerX + arrowSize, toY - arrowSize, '#ff00ff', 1, viewMatrix);
 
       // Label
       const labelX = centerX + 8 / zoom;
       const labelY = (fromY + toY) / 2;
       this.renderTextLabel(label, labelX, labelY, viewMatrix, zoom);
     }
+  }
+
+  /**
+   * Render distance measurement (during drag)
+   */
+  renderDistanceMeasurement(
+    measurement: {
+      from: { x: number; y: number };
+      to: { x: number; y: number };
+      direction: 'horizontal' | 'vertical';
+      distance: number;
+      label: string;
+    },
+    viewMatrix: mat3,
+    zoom: number
+  ): void {
+    const { from, to, label } = measurement;
+
+    // Draw main line
+    this.renderLine(from.x, from.y, to.x, to.y, '#ff00ff', 1, viewMatrix);
+
+    // Draw end caps
+    const capSize = 4 / zoom;
+    if (measurement.direction === 'horizontal') {
+      this.renderLine(from.x, from.y - capSize, from.x, from.y + capSize, '#ff00ff', 1, viewMatrix);
+      this.renderLine(to.x, to.y - capSize, to.x, to.y + capSize, '#ff00ff', 1, viewMatrix);
+    } else {
+      this.renderLine(from.x - capSize, from.y, from.x + capSize, from.y, '#ff00ff', 1, viewMatrix);
+      this.renderLine(to.x - capSize, to.y, to.x + capSize, to.y, '#ff00ff', 1, viewMatrix);
+    }
+
+    // Label
+    const labelX = (from.x + to.x) / 2;
+    const labelY = (from.y + to.y) / 2;
+    this.renderTextLabel(label, labelX, labelY, viewMatrix, zoom);
   }
 
   /**
