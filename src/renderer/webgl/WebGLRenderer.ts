@@ -681,8 +681,8 @@ export class WebGLRenderer {
     viewMatrix: mat3,
     zoom: number
   ): void {
-    const color = 'rgba(255, 200, 100, 0.2)';
-    const borderColor = 'rgba(255, 150, 50, 0.5)';
+    // Blue color for margin (matching Canvas2D diagonal stripes)
+    const color = 'rgba(96, 165, 250, 0.3)';
 
     // Top margin
     if (margin.t > 0) {
@@ -692,15 +692,6 @@ export class WebGLRenderer {
         bounds.width,
         margin.t,
         color,
-        viewMatrix
-      );
-      this.renderDashedLine(
-        bounds.x,
-        bounds.y - margin.t,
-        bounds.x + bounds.width,
-        bounds.y - margin.t,
-        borderColor,
-        1,
         viewMatrix
       );
     }
@@ -751,7 +742,8 @@ export class WebGLRenderer {
     viewMatrix: mat3,
     zoom: number
   ): void {
-    const color = 'rgba(100, 200, 255, 0.2)';
+    // Pink color for padding (matching Canvas2D diagonal stripes)
+    const color = 'rgba(236, 72, 153, 0.3)';
 
     // Top padding
     if (padding.t > 0) {
