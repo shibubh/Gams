@@ -135,6 +135,61 @@ export const Canvas: React.FC = () => {
     }
   }, [currentTool]);
 
+  // Setup keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      // Ignore if user is typing in an input/textarea
+      const target = event.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') {
+        return;
+      }
+
+      // Tool shortcuts (case-insensitive)
+      const key = event.key.toLowerCase();
+      const setTool = useAppStore.getState().setTool;
+
+      switch (key) {
+        case 'f':
+          event.preventDefault();
+          setTool('FRAME');
+          break;
+        case 'v':
+          event.preventDefault();
+          setTool('SELECT');
+          break;
+        case 'h':
+          event.preventDefault();
+          setTool('PAN');
+          break;
+        case 'r':
+          event.preventDefault();
+          setTool('RECTANGLE');
+          break;
+        case 'o':
+          event.preventDefault();
+          setTool('ELLIPSE');
+          break;
+        case 'l':
+          event.preventDefault();
+          setTool('LINE');
+          break;
+        case 't':
+          event.preventDefault();
+          setTool('TEXT');
+          break;
+        case 'escape':
+          event.preventDefault();
+          useAppStore.getState().clearSelection();
+          break;
+        default:
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   return (
     <canvas
       ref={canvasRef}

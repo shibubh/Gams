@@ -204,7 +204,7 @@ export class RenderEngine {
       this.renderNodeWebGL(node, renderer, camera.viewMatrix as unknown as Float32Array);
     });
 
-    // Layer 3: Selection
+    // Layer 3: Selection with resize handles
     nodes.forEach((node) => {
       if (this.selectedNodes.has(node.id)) {
         renderer.renderSelection(
@@ -213,6 +213,15 @@ export class RenderEngine {
           node.bounds.width,
           node.bounds.height,
           camera.viewMatrix
+        );
+        // Render resize handles
+        renderer.renderResizeHandles(
+          node.bounds.x,
+          node.bounds.y,
+          node.bounds.width,
+          node.bounds.height,
+          camera.viewMatrix,
+          camera.zoom
         );
       }
     });
@@ -236,7 +245,7 @@ export class RenderEngine {
       this.renderNodeCanvas2D(node, renderer);
     });
 
-    // Layer 3: Selection
+    // Layer 3: Selection with resize handles
     nodes.forEach((node) => {
       if (this.selectedNodes.has(node.id)) {
         renderer.renderSelection(
@@ -244,6 +253,14 @@ export class RenderEngine {
           node.bounds.y,
           node.bounds.width,
           node.bounds.height
+        );
+        // Render resize handles
+        renderer.renderResizeHandles(
+          node.bounds.x,
+          node.bounds.y,
+          node.bounds.width,
+          node.bounds.height,
+          camera.zoom
         );
       }
     });

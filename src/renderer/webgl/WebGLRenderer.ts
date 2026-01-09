@@ -315,6 +315,81 @@ export class WebGLRenderer {
   }
 
   /**
+   * Render resize handles on all corners and edges.
+   */
+  renderResizeHandles(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    viewMatrix: mat3,
+    zoom: number
+  ): void {
+    const { gl } = this;
+    const program = this.programs.get('selection');
+    if (!program) return;
+
+    gl.useProgram(program);
+
+    // Handle size in world space (should be consistent size regardless of zoom)
+    const handleSize = 8 / zoom; // 8 pixels in screen space
+
+    // Define handle positions (corners and mid-points)
+    const handles = [
+      // Corners
+      { x: x - handleSize/2, y: y - handleSize/2 }, // Top-left
+      { x: x + width - handleSize/2, y: y - handleSize/2 }, // Top-right
+      { x: x - handleSize/2, y: y + height - handleSize/2 }, // Bottom-left
+      { x: x + width - handleSize/2, y: y + height - handleSize/2 }, // Bottom-right
+      // Mid-points
+      { x: x + width/2 - handleSize/2, y: y - handleSize/2 }, // Top-mid
+      { x: x + width/2 - handleSize/2, y: y + height - handleSize/2 }, // Bottom-mid
+      { x: x - handleSize/2, y: y + height/2 - handleSize/2 }, // Left-mid
+      { x: x + width - handleSize/2, y: y + height/2 - handleSize/2 }, // Right-mid
+    ];
+
+    // Get VAO for rectangle (handles are small rectangles)
+    const vaoKey = 'rectangle';
+    const vao = this.vertexArrays.get(vaoKey);
+    if (!vao) return;
+
+    gl.bindVertexArray(vao);
+
+    // Set uniforms
+    const uViewMatrix = gl.getUniformLocation(program, 'u_viewMatrix');
+    const uModelMatrix = gl.getUniformLocation(program, 'u_modelMatrix');
+    const uViewport = gl.getUniformLocation(program, 'u_viewport');
+    const uColor = gl.getUniformLocation(program, 'u_color');
+
+    gl.uniformMatrix3fv(uViewMatrix, false, viewMatrix);
+    gl.uniform2f(uViewport, this.viewport.width, this.viewport.height);
+    gl.uniform4fv(uColor, [1.0, 1.0, 1.0, 1.0]); // White handles
+
+    // Draw each handle
+    handles.forEach(handle => {
+      const modelMatrix = mat3.create();
+      mat3.translate(modelMatrix, modelMatrix, [handle.x, handle.y]);
+      mat3.scale(modelMatrix, modelMatrix, [handleSize, handleSize]);
+
+      gl.uniformMatrix3fv(uModelMatrix, false, modelMatrix);
+      gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+    });
+
+    // Draw handle outlines
+    gl.uniform4fv(uColor, [0.2, 0.5, 1.0, 1.0]); // Blue outline
+    handles.forEach(handle => {
+      const modelMatrix = mat3.create();
+      mat3.translate(modelMatrix, modelMatrix, [handle.x, handle.y]);
+      mat3.scale(modelMatrix, modelMatrix, [handleSize, handleSize]);
+
+      gl.uniformMatrix3fv(uModelMatrix, false, modelMatrix);
+      gl.drawArrays(gl.LINE_LOOP, 0, 4);
+    });
+
+    gl.bindVertexArray(null);
+  }
+
+  /**
    * Render background grid.
    */
   renderGrid(_viewMatrix: mat3, _zoom: number): void {

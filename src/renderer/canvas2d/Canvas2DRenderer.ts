@@ -98,30 +98,51 @@ export class Canvas2DRenderer {
     ctx.lineWidth = 2;
     ctx.setLineDash([]);
     ctx.strokeRect(x, y, width, height);
+  }
 
-    // Draw corner handles
-    const handleSize = 6;
+  /**
+   * Render resize handles on all corners and edges.
+   */
+  renderResizeHandles(
+    x: number,
+    y: number,
+    width: number,
+    height: number,
+    zoom: number
+  ): void {
+    const { ctx } = this;
+
+    // Handle size in screen space (consistent regardless of zoom)
+    const handleSize = 8 / zoom;
+
+    // Define handle positions (corners and mid-points)
     const handles = [
-      [x, y], // Top-left
-      [x + width, y], // Top-right
-      [x + width, y + height], // Bottom-right
-      [x, y + height], // Bottom-left
+      // Corners
+      { x: x, y: y }, // Top-left
+      { x: x + width, y: y }, // Top-right
+      { x: x, y: y + height }, // Bottom-left
+      { x: x + width, y: y + height }, // Bottom-right
+      // Mid-points
+      { x: x + width / 2, y: y }, // Top-mid
+      { x: x + width / 2, y: y + height }, // Bottom-mid
+      { x: x, y: y + height / 2 }, // Left-mid
+      { x: x + width, y: y + height / 2 }, // Right-mid
     ];
 
     ctx.fillStyle = '#ffffff';
     ctx.strokeStyle = '#3b82f6';
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 1.5 / zoom;
 
-    handles.forEach(([hx, hy]) => {
+    handles.forEach(handle => {
       ctx.fillRect(
-        hx - handleSize / 2,
-        hy - handleSize / 2,
+        handle.x - handleSize / 2,
+        handle.y - handleSize / 2,
         handleSize,
         handleSize
       );
       ctx.strokeRect(
-        hx - handleSize / 2,
-        hy - handleSize / 2,
+        handle.x - handleSize / 2,
+        handle.y - handleSize / 2,
         handleSize,
         handleSize
       );
