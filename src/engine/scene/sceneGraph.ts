@@ -292,6 +292,10 @@ export function findNode(root: SceneNode, nodeId: NodeId): SceneNode | null {
 /**
  * Find the parent node (Frame) that contains this node.
  * Returns null if the node has no parent or if parent is the root.
+ * 
+ * @param root - The scene root to search from
+ * @param nodeId - The ID of the node whose parent frame to find
+ * @returns The parent FrameNode if found, null otherwise
  */
 export function findParentFrame(root: SceneNode, nodeId: NodeId): SceneNode | null {
   // Helper function to search recursively

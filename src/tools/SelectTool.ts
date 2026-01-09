@@ -267,6 +267,11 @@ export class SelectTool implements Tool {
   /**
    * Constrain bounds to stay within parent frame.
    * Returns the original bounds if no parent frame exists.
+   * 
+   * @param scene - The scene root to search for parent frame
+   * @param nodeId - The ID of the node to constrain
+   * @param bounds - The desired bounds to constrain
+   * @returns Constrained bounds that fit within parent frame
    */
   private constrainBoundsToParent(
     scene: SceneNode,
@@ -315,6 +320,12 @@ export class SelectTool implements Tool {
    * Move a node and all its children.
    * When moving a frame, all child shapes move with it.
    * Shapes are constrained to stay within their parent frame bounds.
+   * 
+   * @param scene - The scene root
+   * @param nodeId - The ID of the node to move
+   * @param deltaX - Horizontal movement delta
+   * @param deltaY - Vertical movement delta
+   * @returns Updated scene with moved node and children
    */
   private moveNodeAndChildren(
     scene: SceneNode,
