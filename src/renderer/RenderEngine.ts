@@ -1,9 +1,10 @@
 /**
  * Main render engine that orchestrates the rendering pipeline.
- * Handles layer-based rendering, viewport culling, and render loop.
+ * Handles layer-based rendering, viewport culling (via WASM), and render loop.
  */
 
 import { CameraController } from '../engine/camera';
+import { WasmAdapter } from '../engine/wasm/WasmAdapter';
 import { WebGLRenderer } from './webgl/WebGLRenderer';
 import { Canvas2DRenderer } from './canvas2d/Canvas2DRenderer';
 import type {
@@ -13,6 +14,7 @@ import type {
   TextNode,
 } from '../types/core';
 import { NodeType } from '../types/core';
+import { collectAllNodes } from '../engine/scene/sceneGraph';
 
 export interface RenderEngineOptions {
   preferWebGL?: boolean;
@@ -29,12 +31,22 @@ export class RenderEngine {
   private selectedNodes: Set<NodeId> = new Set();
   private hoveredNode: NodeId | null = null;
   private isDirty: boolean = true;
+  
+  // WASM performance layer
+  private wasmAdapter: WasmAdapter;
+  private wasmInitialized: boolean = false;
+  
+  // Performance tracking
+  private lastFrameTime: number = 0;
+  private frameCount: number = 0;
+  private fps: number = 60;
 
   constructor(
     canvas: HTMLCanvasElement,
     options: RenderEngineOptions = {}
   ) {
     this.canvas = canvas;
+    this.wasmAdapter = new WasmAdapter();
 
     // Initialize camera
     this.camera = new CameraController({
@@ -61,6 +73,21 @@ export class RenderEngine {
     }
 
     this.setupEventListeners();
+    this.initWasm();
+  }
+
+  /**
+   * Initialize WASM adapter (async)
+   */
+  private async initWasm(): Promise<void> {
+    try {
+      await this.wasmAdapter.init({ capacity: 100000 });
+      this.wasmInitialized = true;
+      console.log('[RenderEngine] WASM initialized');
+    } catch (error) {
+      console.error('[RenderEngine] WASM initialization failed:', error);
+      // Continue without WASM (fallback to JS culling)
+    }
   }
 
   private setupEventListeners(): void {
@@ -78,6 +105,20 @@ export class RenderEngine {
 
     this.camera.updateViewport(width, height, pixelRatio);
     this.renderer.resize(width, height);
+    
+    // Update WASM camera
+    if (this.wasmInitialized) {
+      const cam = this.camera.getCamera();
+      this.wasmAdapter.setCamera(
+        cam.zoom,
+        cam.position[0],
+        cam.position[1],
+        width,
+        height,
+        pixelRatio
+      );
+    }
+    
     this.markDirty();
   }
 
@@ -86,6 +127,18 @@ export class RenderEngine {
    */
   setScene(scene: SceneNode): void {
     this.scene = scene;
+    
+    // Update WASM spatial index
+    if (this.wasmInitialized) {
+      const startTime = performance.now();
+      this.wasmAdapter.updateFromScene(scene);
+      const elapsed = performance.now() - startTime;
+      
+      if (elapsed > 10) {
+        console.warn(`[RenderEngine] WASM update took ${elapsed.toFixed(2)}ms`);
+      }
+    }
+    
     this.markDirty();
   }
 
@@ -120,6 +173,13 @@ export class RenderEngine {
   getCamera(): CameraController {
     return this.camera;
   }
+  
+  /**
+   * Get the WASM adapter.
+   */
+  getWasmAdapter(): WasmAdapter {
+    return this.wasmAdapter;
+  }
 
   /**
    * Start the render loop.
@@ -127,15 +187,35 @@ export class RenderEngine {
   start(): void {
     if (this.animationFrameId !== null) return;
 
-    const renderLoop = () => {
+    const renderLoop = (timestamp: number) => {
+      // Calculate FPS
+      if (this.lastFrameTime > 0) {
+        const delta = timestamp - this.lastFrameTime;
+        this.fps = 1000 / delta;
+        this.frameCount++;
+      }
+      this.lastFrameTime = timestamp;
+
       if (this.isDirty) {
+        const frameStart = performance.now();
         this.render();
         this.isDirty = false;
+        
+        const frameTime = performance.now() - frameStart;
+        
+        // Log slow frames
+        if (frameTime > 16.67) {
+          console.warn(`[RenderEngine] Slow frame: ${frameTime.toFixed(2)}ms`);
+        }
+        
+        // Dispatch performance metrics
+        this.dispatchPerformanceMetrics(frameTime);
       }
+      
       this.animationFrameId = requestAnimationFrame(renderLoop);
     };
 
-    renderLoop();
+    renderLoop(performance.now());
   }
 
   /**
@@ -157,8 +237,8 @@ export class RenderEngine {
     // Clear canvas
     this.renderer.clear();
 
-    // Get visible nodes through viewport culling
-    const visibleNodes = this.cullNodes(this.scene);
+    // Get visible nodes through WASM or fallback to JS culling
+    const visibleNodes = this.getVisibleNodes();
 
     if (this.useWebGL) {
       this.renderWebGL(visibleNodes);
@@ -168,9 +248,43 @@ export class RenderEngine {
   }
 
   /**
-   * Viewport culling - only render visible nodes.
+   * Get visible nodes using WASM culling or fallback to JS
    */
-  private cullNodes(root: SceneNode): SceneNode[] {
+  private getVisibleNodes(): SceneNode[] {
+    if (!this.scene) return [];
+    
+    const cullStart = performance.now();
+    
+    if (this.wasmInitialized) {
+      // WASM-accelerated culling
+      const visibleIds = this.wasmAdapter.getVisibleNodes();
+      const allNodes = collectAllNodes(this.scene);
+      const nodeMap = new Map(allNodes.map(n => [n.id, n]));
+      const visible = visibleIds
+        .map(id => nodeMap.get(id))
+        .filter((n): n is SceneNode => n !== undefined);
+      
+      const cullTime = performance.now() - cullStart;
+      this.lastCullTime = cullTime;
+      
+      return visible;
+    } else {
+      // Fallback: JS culling
+      const visible = this.cullNodesJS(this.scene);
+      const cullTime = performance.now() - cullStart;
+      this.lastCullTime = cullTime;
+      
+      return visible;
+    }
+  }
+  
+  private lastCullTime: number = 0;
+  private lastHitTestTime: number = 0;
+
+  /**
+   * Viewport culling - only render visible nodes (JS fallback).
+   */
+  private cullNodesJS(root: SceneNode): SceneNode[] {
     const visible: SceneNode[] = [];
 
     const traverse = (node: SceneNode) => {
@@ -382,6 +496,27 @@ export class RenderEngine {
         break;
       }
     }
+  }
+  
+  /**
+   * Dispatch performance metrics event
+   */
+  private dispatchPerformanceMetrics(frameTime: number): void {
+    const allNodes = this.scene ? collectAllNodes(this.scene) : [];
+    const visibleNodes = this.getVisibleNodes();
+    
+    const event = new CustomEvent('perf-update', {
+      detail: {
+        fps: this.fps,
+        frameTime,
+        visibleCount: visibleNodes.length,
+        totalCount: allNodes.length,
+        cullTime: this.lastCullTime,
+        hitTestTime: this.lastHitTestTime,
+        wasmNodeCount: this.wasmInitialized ? this.wasmAdapter.getNodeCount() : 0,
+      },
+    });
+    window.dispatchEvent(event);
   }
 
   /**

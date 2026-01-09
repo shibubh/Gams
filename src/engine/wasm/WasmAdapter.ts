@@ -112,10 +112,14 @@ export class WasmAdapter {
     if (!this.core) throw new Error('[WASM] Not initialized');
 
     const startTime = performance.now();
-    const handles = this.core.cull_visible();
-    const ids = handles
-      .map((handle) => this.idRegistry.getId(handle))
-      .filter((id): id is string => id !== undefined);
+    const handlesArray = this.core.cull_visible();
+    
+    // Convert Uint32Array to NodeId[]
+    const ids: NodeId[] = [];
+    for (let i = 0; i < handlesArray.length; i++) {
+      const id = this.idRegistry.getId(handlesArray[i]);
+      if (id) ids.push(id);
+    }
 
     const elapsed = performance.now() - startTime;
     if (elapsed > 2) {
@@ -132,10 +136,14 @@ export class WasmAdapter {
     if (!this.core) throw new Error('[WASM] Not initialized');
 
     const startTime = performance.now();
-    const handles = this.core.hit_test_point(worldX, worldY);
-    const ids = handles
-      .map((handle) => this.idRegistry.getId(handle))
-      .filter((id): id is string => id !== undefined);
+    const handlesArray = this.core.hit_test_point(worldX, worldY);
+    
+    // Convert Uint32Array to NodeId[]
+    const ids: NodeId[] = [];
+    for (let i = 0; i < handlesArray.length; i++) {
+      const id = this.idRegistry.getId(handlesArray[i]);
+      if (id) ids.push(id);
+    }
 
     const elapsed = performance.now() - startTime;
     if (elapsed > 2) {
@@ -151,16 +159,21 @@ export class WasmAdapter {
   queryRect(bounds: Bounds): NodeId[] {
     if (!this.core) throw new Error('[WASM] Not initialized');
 
-    const handles = this.core.query_rect(
+    const handlesArray = this.core.query_rect(
       bounds.x,
       bounds.y,
       bounds.x + bounds.width,
       bounds.y + bounds.height
     );
 
-    return handles
-      .map((handle) => this.idRegistry.getId(handle))
-      .filter((id): id is string => id !== undefined);
+    // Convert Uint32Array to NodeId[]
+    const ids: NodeId[] = [];
+    for (let i = 0; i < handlesArray.length; i++) {
+      const id = this.idRegistry.getId(handlesArray[i]);
+      if (id) ids.push(id);
+    }
+    
+    return ids;
   }
 
   /**
@@ -169,10 +182,16 @@ export class WasmAdapter {
   queryNear(worldX: number, worldY: number, radius: number): NodeId[] {
     if (!this.core) throw new Error('[WASM] Not initialized');
 
-    const handles = this.core.query_near(worldX, worldY, radius);
-    return handles
-      .map((handle) => this.idRegistry.getId(handle))
-      .filter((id): id is string => id !== undefined);
+    const handlesArray = this.core.query_near(worldX, worldY, radius);
+    
+    // Convert Uint32Array to NodeId[]
+    const ids: NodeId[] = [];
+    for (let i = 0; i < handlesArray.length; i++) {
+      const id = this.idRegistry.getId(handlesArray[i]);
+      if (id) ids.push(id);
+    }
+    
+    return ids;
   }
 
   /**

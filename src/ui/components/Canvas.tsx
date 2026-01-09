@@ -3,7 +3,7 @@
  * Decoupled from React rendering loop for 60 FPS performance.
  */
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { RenderEngine } from '../../renderer/RenderEngine';
 import { PointerManager } from '../../interactions/pointer/PointerManager';
 import { SelectTool } from '../../tools/SelectTool';
@@ -11,6 +11,7 @@ import { PanTool } from '../../tools/PanTool';
 import { RectangleTool } from '../../tools/RectangleTool';
 import { FrameTool } from '../../tools/FrameTool';
 import { EllipseTool } from '../../tools/EllipseTool';
+import { PerformanceOverlay } from '../components/PerformanceOverlay';
 import type { Tool, ToolContext } from '../../tools/Tool';
 import { useAppStore, type AppState } from '../../state/store';
 import type { SceneNode, PointerState } from '../../types/core';
@@ -22,6 +23,7 @@ export const Canvas: React.FC = () => {
   const pointerRef = useRef<PointerManager | null>(null);
   const toolsRef = useRef<Map<ToolType, Tool>>(new Map());
   const currentToolRef = useRef<Tool | null>(null);
+  const [showPerf, setShowPerf] = useState(false);
 
   const scene = useAppStore((state: AppState) => state.scene);
   const selectedNodes = useAppStore((state: AppState) => state.selectedNodes);
@@ -82,10 +84,36 @@ export const Canvas: React.FC = () => {
       currentToolRef.current?.onPointerUp(state);
     });
 
-    // Setup zoom on wheel
+    // Setup zoom on wheel with performance tracking
     pointer.onWheel((deltaY: number, x: number, y: number) => {
+      const wheelStart = performance.now();
+      
       engine.getCamera().zoom(-deltaY, x, y);
+      
+      // Update WASM camera transform
+      const wasm = engine.getWasmAdapter();
+      if (wasm.isInitialized()) {
+        const cam = engine.getCamera().getCamera();
+        const viewport = {
+          width: canvas.clientWidth,
+          height: canvas.clientHeight,
+        };
+        wasm.setCamera(
+          cam.zoom,
+          cam.position[0],
+          cam.position[1],
+          viewport.width,
+          viewport.height,
+          window.devicePixelRatio || 1
+        );
+      }
+      
       engine.markDirty();
+      
+      const wheelTime = performance.now() - wheelStart;
+      if (wheelTime > 2) {
+        console.warn(`[Canvas] Wheel handler took ${wheelTime.toFixed(2)}ms (target: <2ms)`);
+      }
     });
 
     // Start render loop
@@ -174,6 +202,10 @@ export const Canvas: React.FC = () => {
       } else if (key === 'escape') {
         event.preventDefault();
         useAppStore.getState().clearSelection();
+      } else if (key === 'p' && event.shiftKey) {
+        // Shift+P: Toggle performance overlay
+        event.preventDefault();
+        setShowPerf(prev => !prev);
       }
     };
 
@@ -182,15 +214,18 @@ export const Canvas: React.FC = () => {
   }, []);
 
   return (
-    <canvas
-      ref={canvasRef}
-      style={{
-        width: '100%',
-        height: '100%',
-        display: 'block',
-        touchAction: 'none',
-        cursor: currentToolRef.current?.cursor || 'default',
-      }}
-    />
+    <>
+      <canvas
+        ref={canvasRef}
+        style={{
+          width: '100%',
+          height: '100%',
+          display: 'block',
+          touchAction: 'none',
+          cursor: currentToolRef.current?.cursor || 'default',
+        }}
+      />
+      <PerformanceOverlay visible={showPerf} />
+    </>
   );
 };
