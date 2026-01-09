@@ -9,6 +9,15 @@ export class Canvas2DRenderer {
   private ctx: CanvasRenderingContext2D;
   private canvas: HTMLCanvasElement;
   private patternCache: Map<string, CanvasPattern | null> = new Map();
+  
+  // Pattern constants
+  private static readonly MIN_PATTERN_SIZE = 8;
+  private static readonly STRIPE_SPACING = 4;
+  
+  // Badge constants
+  private static readonly BADGE_FONT_SIZE = 10;
+  private static readonly BADGE_PADDING = 4;
+  private static readonly BADGE_BORDER_RADIUS = 3;
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -343,7 +352,7 @@ export class Canvas2DRenderer {
     
     // Create a small canvas for the pattern
     const patternCanvas = document.createElement('canvas');
-    const patternSize = Math.max(8, 8 / zoom); // Keep pattern visible at different zoom levels
+    const patternSize = Math.max(Canvas2DRenderer.MIN_PATTERN_SIZE, Canvas2DRenderer.MIN_PATTERN_SIZE / zoom);
     patternCanvas.width = patternSize;
     patternCanvas.height = patternSize;
     
@@ -359,7 +368,7 @@ export class Canvas2DRenderer {
     
     if (direction === 'ne') {
       // Northeast direction (↗)
-      for (let i = -patternSize; i < patternSize * 2; i += 4) {
+      for (let i = -patternSize; i < patternSize * 2; i += Canvas2DRenderer.STRIPE_SPACING) {
         pctx.beginPath();
         pctx.moveTo(i, patternSize);
         pctx.lineTo(i + patternSize, 0);
@@ -367,7 +376,7 @@ export class Canvas2DRenderer {
       }
     } else {
       // Southeast direction (↘)
-      for (let i = -patternSize; i < patternSize * 2; i += 4) {
+      for (let i = -patternSize; i < patternSize * 2; i += Canvas2DRenderer.STRIPE_SPACING) {
         pctx.beginPath();
         pctx.moveTo(i, 0);
         pctx.lineTo(i + patternSize, patternSize);
@@ -394,9 +403,9 @@ export class Canvas2DRenderer {
   ): void {
     const { ctx } = this;
     
-    const fontSize = Math.max(10, 10 / zoom);
-    const padding = Math.max(4, 4 / zoom);
-    const borderRadius = Math.max(3, 3 / zoom);
+    const fontSize = Math.max(Canvas2DRenderer.BADGE_FONT_SIZE, Canvas2DRenderer.BADGE_FONT_SIZE / zoom);
+    const padding = Math.max(Canvas2DRenderer.BADGE_PADDING, Canvas2DRenderer.BADGE_PADDING / zoom);
+    const borderRadius = Math.max(Canvas2DRenderer.BADGE_BORDER_RADIUS, Canvas2DRenderer.BADGE_BORDER_RADIUS / zoom);
     
     ctx.save();
     ctx.font = `bold ${fontSize}px Arial`;
