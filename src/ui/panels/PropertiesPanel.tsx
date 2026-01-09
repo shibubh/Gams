@@ -139,26 +139,27 @@ export const PropertiesPanel: React.FC = () => {
   };
 
   const handleMarginChange = (side: 't' | 'r' | 'b' | 'l', value: number) => {
-    // Update local state
-    if (side === 't') setMarginTop(value);
-    else if (side === 'r') setMarginRight(value);
-    else if (side === 'b') setMarginBottom(value);
-    else if (side === 'l') setMarginLeft(value);
-    
     if (!scene) return;
     
     const extendedStyle = (selectedNode.style as unknown as NodeStyleExtended) || {};
     const boxModel = extendedStyle.boxModel || createDefaultBoxModel();
     
+    // Use current boxModel values instead of state to avoid stale closure
     const updatedBoxModel = {
       ...boxModel,
       margin: {
-        t: side === 't' ? value : marginTop,
-        r: side === 'r' ? value : marginRight,
-        b: side === 'b' ? value : marginBottom,
-        l: side === 'l' ? value : marginLeft,
+        t: side === 't' ? value : boxModel.margin.t,
+        r: side === 'r' ? value : boxModel.margin.r,
+        b: side === 'b' ? value : boxModel.margin.b,
+        l: side === 'l' ? value : boxModel.margin.l,
       },
     };
+    
+    // Update local state
+    if (side === 't') setMarginTop(value);
+    else if (side === 'r') setMarginRight(value);
+    else if (side === 'b') setMarginBottom(value);
+    else if (side === 'l') setMarginLeft(value);
     
     const updatedStyle = {
       ...selectedNode.style,
@@ -170,26 +171,27 @@ export const PropertiesPanel: React.FC = () => {
   };
 
   const handlePaddingChange = (side: 't' | 'r' | 'b' | 'l', value: number) => {
-    // Update local state
-    if (side === 't') setPaddingTop(value);
-    else if (side === 'r') setPaddingRight(value);
-    else if (side === 'b') setPaddingBottom(value);
-    else if (side === 'l') setPaddingLeft(value);
-    
     if (!scene) return;
     
     const extendedStyle = (selectedNode.style as unknown as NodeStyleExtended) || {};
     const boxModel = extendedStyle.boxModel || createDefaultBoxModel();
     
+    // Use current boxModel values instead of state to avoid stale closure
     const updatedBoxModel = {
       ...boxModel,
       padding: {
-        t: side === 't' ? value : paddingTop,
-        r: side === 'r' ? value : paddingRight,
-        b: side === 'b' ? value : paddingBottom,
-        l: side === 'l' ? value : paddingLeft,
+        t: side === 't' ? value : boxModel.padding.t,
+        r: side === 'r' ? value : boxModel.padding.r,
+        b: side === 'b' ? value : boxModel.padding.b,
+        l: side === 'l' ? value : boxModel.padding.l,
       },
     };
+    
+    // Update local state
+    if (side === 't') setPaddingTop(value);
+    else if (side === 'r') setPaddingRight(value);
+    else if (side === 'b') setPaddingBottom(value);
+    else if (side === 'l') setPaddingLeft(value);
     
     const updatedStyle = {
       ...selectedNode.style,

@@ -8,6 +8,7 @@ import type { Camera } from '../../types/core';
 export class Canvas2DRenderer {
   private ctx: CanvasRenderingContext2D;
   private canvas: HTMLCanvasElement;
+  private patternCache: Map<string, CanvasPattern | null> = new Map();
 
   constructor(canvas: HTMLCanvasElement) {
     this.canvas = canvas;
@@ -323,12 +324,21 @@ export class Canvas2DRenderer {
 
   /**
    * Create diagonal stripe pattern (for margin/padding visualization)
+   * Cached by color, direction, and zoom level for performance
    */
   private createDiagonalPattern(
     color: string,
     direction: 'ne' | 'se' = 'ne',
     zoom: number
   ): CanvasPattern | null {
+    // Create cache key
+    const cacheKey = `${color}-${direction}-${zoom.toFixed(2)}`;
+    
+    // Check cache
+    if (this.patternCache.has(cacheKey)) {
+      return this.patternCache.get(cacheKey)!;
+    }
+    
     const { ctx } = this;
     
     // Create a small canvas for the pattern
@@ -365,7 +375,12 @@ export class Canvas2DRenderer {
       }
     }
     
-    return ctx.createPattern(patternCanvas, 'repeat');
+    const pattern = ctx.createPattern(patternCanvas, 'repeat');
+    
+    // Cache the pattern
+    this.patternCache.set(cacheKey, pattern);
+    
+    return pattern;
   }
 
   /**
